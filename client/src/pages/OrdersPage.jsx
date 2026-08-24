@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Package, Search, ChevronRight, Clock, CheckCircle, Truck, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../utils/constants';
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
@@ -18,7 +19,7 @@ const OrdersPage = () => {
           navigate('/login');
           return;
         }
-        const { data } = await axios.get('http://localhost:5000/api/orders/my', {
+        const { data } = await axios.get(`${API_BASE_URL}/orders/my`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setOrders(data);

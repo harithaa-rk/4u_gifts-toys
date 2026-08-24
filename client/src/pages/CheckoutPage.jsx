@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { API_BASE_URL } from '../utils/constants';
 import { 
   MapPin, Building, Hash, Phone, 
   CreditCard, ChevronRight, ShieldCheck, 
@@ -44,7 +45,7 @@ const CheckoutPage = () => {
         paymentMethod: paymentMethod, // optional tracking
       };
 
-      await axios.post('http://localhost:5000/api/orders', orderData, {
+      await axios.post(`${API_BASE_URL}/orders`, orderData, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { UserPlus, Eye, EyeOff, Gift, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
+import { API_BASE_URL } from "../utils/constants";
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ const RegisterPage = () => {
     }
     setLoading(true);
     try {
-      const res = await axios.post("http://127.0.0.1:5000/api/auth/register", form);
+      const res = await axios.post(`${API_BASE_URL}/auth/register`, form);
       toast.success(res.data.message || "OTP sent to your email!");
       setStep(2);
     } catch (err) {
@@ -38,7 +39,7 @@ const RegisterPage = () => {
     }
     setLoading(true);
     try {
-      const res = await axios.post("http://127.0.0.1:5000/api/auth/verify-otp", {
+      const res = await axios.post(`${API_BASE_URL}/auth/verify-otp`, {
         email: form.email,
         otp: form.otp,
       });

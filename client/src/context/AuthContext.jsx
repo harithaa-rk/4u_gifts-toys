@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/constants';
 
 const AuthContext = createContext(null);
 
@@ -17,7 +18,7 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       try {
-        await axios.get('http://localhost:5000/api/auth/me', {
+        await axios.get(`${API_BASE_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setIsLoggedIn(true);

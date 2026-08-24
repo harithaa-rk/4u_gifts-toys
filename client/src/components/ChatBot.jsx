@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Bot, User, ShoppingBag, Sparkles, MessageSquareHeart } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/constants';
 
-const API = "http://localhost:5000/api";
+const API = API_BASE_URL;
 
 // ─── Trendy Google Font ───
 const CHAT_FONT = "'Outfit', 'Segoe UI', system-ui, -apple-system, sans-serif";

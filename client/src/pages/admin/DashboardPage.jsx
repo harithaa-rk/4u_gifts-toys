@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-const API = "http://localhost:5000/api";
+import { API_BASE_URL } from "../../utils/constants";
+const API = API_BASE_URL;
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const toBase64 = (file) =>
   new Promise((resolve, reject) => {

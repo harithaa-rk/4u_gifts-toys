@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../utils/constants";
 
 const TestPage = () => {
   const [message, setMessage] = useState("Checking...");
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/test")
+      .get(`${API_BASE_URL}/test`)
       .then((res) => {
         setMessage(res.data.message);
       })

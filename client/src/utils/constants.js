@@ -1,5 +1,4 @@
 // constants.js
-// Add your global constants here
-
-export const API_BASE_URL = "http://localhost:5000/api";
-// Add more constants as needed
+// Global constants & API configuration
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";

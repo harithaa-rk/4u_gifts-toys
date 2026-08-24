@@ -5,8 +5,9 @@ import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { ShoppingCart, Search, LayoutGrid, List, Heart } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
+import { API_BASE_URL } from "../utils/constants";
 
-const API = "http://localhost:5000/api";
+const API = API_BASE_URL;
 
 const ShopPage = () => {
   const { addToCart } = useCart();

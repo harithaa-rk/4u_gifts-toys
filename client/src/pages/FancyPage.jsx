@@ -5,8 +5,9 @@ import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { Sparkles, ShoppingBag, Heart } from "lucide-react";
+import { API_BASE_URL } from "../utils/constants";
 
-const API = "http://localhost:5000/api";
+const API = API_BASE_URL;
 
 const FancyPage = () => {
   const { addToCart } = useCart();

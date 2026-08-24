@@ -18,8 +18,9 @@ import {
 import toast from "react-hot-toast";
 
 import ARViewer from "../components/product/ARViewer";
+import { API_BASE_URL } from "../utils/constants";
 
-const API = "http://localhost:5000/api";
+const API = API_BASE_URL;
 
 const ProductDetailPage = () => {
   const { id } = useParams();

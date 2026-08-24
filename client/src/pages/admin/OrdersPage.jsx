@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Package, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../utils/constants';
 
 const AdminOrdersPage = () => {
   const [orders, setOrders] = useState([]);
@@ -18,7 +19,7 @@ const AdminOrdersPage = () => {
           navigate('/login');
           return;
         }
-        const { data } = await axios.get(`http://localhost:5000/api/orders/admin?page=${page}&limit=10`, {
+        const { data } = await axios.get(`${API_BASE_URL}/orders/admin?page=${page}&limit=10`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setOrders(data.orders);

@@ -1,3 +1,6 @@
+import { API_BASE_URL } from "../../utils/constants";
+import axios from "axios";
+
 const formDataToSend = new FormData();
 
 formDataToSend.append("name", formData.name);
@@ -18,7 +21,7 @@ for (let i = 0; i < images.length; i++) {
 }
 
 await axios.post(
-  "http://localhost:5000/api/products",
+  `${API_BASE_URL}/products`,
   formDataToSend,
   {
     headers: {

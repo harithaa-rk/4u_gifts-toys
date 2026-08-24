@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { LogIn, Eye, EyeOff, Gift } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE_URL } from "../utils/constants";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ const LoginPage = () => {
     }
     setLoading(true);
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", form);
+      const res = await axios.post(`${API_BASE_URL}/auth/login`, form);
       login(res.data.token);   // ← updates AuthContext & localStorage
       toast.success("Welcome back! 🎉");
       navigate("/");
