@@ -19,6 +19,7 @@ import CheckoutPage from "./pages/CheckoutPage.jsx";
 import OrderSuccessPage from "./pages/OrderSuccessPage.jsx";
 import OrdersPage from "./pages/OrdersPage.jsx";
 import WishlistPage from "./pages/WishlistPage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
 import DashboardPage from "./pages/admin/DashboardPage.jsx";
 import AdminOrdersPage from "./pages/admin/OrdersPage.jsx";
 
@@ -58,6 +59,7 @@ function App() {
               <Route path="/baby" element={<BabyPage />} />
               <Route path="/mommy" element={<MommyPage />} />
               <Route path="/father" element={<FatherPage />} />
+              <Route path="/daddy" element={<FatherPage />} />
               <Route path="/decor" element={<DecorPage />} />
               <Route path="/fancy" element={<FancyPage />} />
 
@@ -65,10 +67,13 @@ function App() {
               <Route path="/order-success" element={<OrderSuccessPage />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/wishlist" element={<WishlistPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/settings" element={<ProfilePage />} />
 
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/login" element={<LoginPage />} />
             </Route>
+
 
             {/* Admin Routes - standalone */}
             <Route path="/admin">

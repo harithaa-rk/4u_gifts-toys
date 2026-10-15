@@ -2,8 +2,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const OrderSuccessPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   return (
@@ -15,23 +17,25 @@ const OrderSuccessPage = () => {
       >
         <CheckCircle size={100} color="#4ade80" style={{ marginBottom: '20px' }} />
       </motion.div>
-      <h1 style={{ fontSize: '36px', marginBottom: '10px', color: 'var(--text)' }}>Order Placed!</h1>
+      <h1 style={{ fontSize: '36px', marginBottom: '10px', color: 'var(--text)' }}>
+        {t('orderSuccess.title', 'Order Placed! 🎉')}
+      </h1>
       <p style={{ fontSize: '18px', color: 'var(--text-muted)', maxWidth: '500px', marginBottom: '40px' }}>
-        Thank you for shopping with 4U Toys. Your magical order is being processed and will be on its way soon!
+        {t('orderSuccess.desc', 'Thank you for shopping with 4U Toys. Your magical order is being processed and will be on its way soon!')}
       </p>
       <div style={{ display: 'flex', gap: '15px' }}>
         <button
           onClick={() => navigate('/orders')}
           style={{ padding: '14px 28px', background: 'var(--card-bg)', color: 'var(--text)', border: '2px solid var(--border)', borderRadius: '16px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
         >
-          View Orders
+          {t('orderSuccess.viewOrders', 'View Orders')}
         </button>
         <button
           onClick={() => navigate('/shop')}
           className="btn-primary"
           style={{ padding: '14px 28px', borderRadius: '16px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
         >
-          Continue Shopping
+          {t('orderSuccess.continueShopping', 'Continue Shopping')}
         </button>
       </div>
     </div>

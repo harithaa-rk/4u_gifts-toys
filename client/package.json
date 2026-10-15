@@ -13,13 +13,17 @@
     "@google/model-viewer": "^4.2.0",
     "axios": "^1.15.0",
     "framer-motion": "^12.38.0",
+    "gsap": "^3.15.0",
+    "i18next": "^26.4.4",
     "lucide-react": "^1.8.0",
     "react": "^19.2.4",
     "react-countup": "^6.5.3",
     "react-dom": "^19.2.4",
     "react-hot-toast": "^2.6.0",
+    "react-i18next": "^17.0.16",
     "react-router-dom": "^7.14.0",
-    "react-typed": "^2.0.12"
+    "react-typed": "^2.0.12",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

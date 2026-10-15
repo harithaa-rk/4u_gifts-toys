@@ -13,6 +13,8 @@ import aboutRoutes from "./routes/aboutRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import voucherRoutes from "./routes/voucherRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 
 const app = express();
 
@@ -45,6 +47,8 @@ app.use("/api/about", aboutRoutes);
 app.use("/api/chat", chatbotRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/vouchers", voucherRoutes);
+app.use("/api/payment", paymentRoutes);
 
 // Dummy OTP route
 app.post("/api/auth/verify-otp", (req, res) => {

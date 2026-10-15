@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Package, Search, ChevronRight, Clock, CheckCircle, Truck, XCircle } from 'lucide-react';
+import { Package, Search, ChevronRight, Clock, CheckCircle, Truck, XCircle, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { API_BASE_URL } from '../utils/constants';
 
 const OrdersPage = () => {
+  const { t } = useTranslation();
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -49,6 +51,16 @@ const OrdersPage = () => {
     }
   };
 
+  const getStatusLabel = (status) => {
+    switch(status) {
+      case 'Pending': return t('orders.statusPending', 'Pending');
+      case 'Processing': return t('orders.statusProcessing', 'Processing');
+      case 'Shipped': return t('orders.statusShipped', 'Shipped');
+      case 'Delivered': return t('orders.statusDelivered', 'Delivered');
+      default: return t('orders.statusCancelled', 'Cancelled');
+    }
+  };
+
   const getStatusColor = (status) => {
     switch(status) {
       case 'Pending': return { bg: '#fff8e1', text: '#f57f17' };
@@ -74,15 +86,20 @@ const OrdersPage = () => {
     <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '120px 20px 80px', minHeight: '80vh' }}>
       
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', gap: '20px' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '15px', margin: 0, fontSize: '32px', color: 'var(--text)' }}>
-          <Package size={36} color="var(--primary)" /> Magical Orders
-        </h1>
+        <div>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '15px', margin: 0, fontSize: '32px', color: 'var(--plum)', fontFamily: 'var(--font-display)', fontWeight: 900 }}>
+            <Package size={36} color="var(--primary)" /> {t('orders.title', 'My Orders')}
+          </h1>
+          <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 14 }}>
+            {t('orders.subtitle', 'Track and view your recent purchases')}
+          </p>
+        </div>
         
         <div style={{ position: 'relative', minWidth: '300px' }}>
           <Search size={20} color="var(--text-muted)" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
           <input 
             type="text" 
-            placeholder="Search by Order ID or Product..." 
+            placeholder={t('orders.searchPlaceholder', 'Search by Order ID or Product...')} 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: '100%', padding: '14px 14px 14px 48px', borderRadius: '30px', border: '2px solid var(--border)', background: 'var(--card-bg, rgba(255,255,255,0.7))', backdropFilter: 'blur(10px)', fontSize: '15px', color: 'var(--text)', outline: 'none', transition: 'border-color 0.3s' }}
@@ -95,17 +112,18 @@ const OrdersPage = () => {
       {filteredOrders.length === 0 ? (
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ textAlign: 'center', padding: '80px 20px', background: 'var(--card-bg, rgba(255,255,255,0.6))', backdropFilter: 'blur(20px)', borderRadius: '30px', border: '1px solid var(--border)', boxShadow: '0 20px 50px rgba(0,0,0,0.05)' }}>
           <div style={{ fontSize: '60px', marginBottom: '20px' }}>🛍️</div>
-          <h2 style={{ color: 'var(--text)', marginBottom: '10px' }}>No orders found</h2>
+          <h2 style={{ color: 'var(--plum)', marginBottom: '10px', fontFamily: 'var(--font-display)', fontWeight: 800 }}>
+            {t('orders.noOrdersTitle', 'No orders found')}
+          </h2>
           <p style={{ fontSize: '16px', color: 'var(--text-muted)', marginBottom: '30px' }}>
-            {search ? "We couldn't find any orders matching your search." : "You haven't placed any magical orders yet."}
+            {search ? t('shop.noItemsDesc', "We couldn't find any orders matching your search.") : t('orders.noOrdersDesc', "You haven't placed any magical orders yet.")}
           </p>
           <motion.button 
             whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
             onClick={() => navigate('/shop')} 
-            className="btn-primary"
-            style={{ padding: '14px 32px', borderRadius: '30px', fontSize: '16px', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+            style={{ padding: '14px 32px', borderRadius: '30px', fontSize: '16px', fontWeight: 800, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: '#fff', boxShadow: 'var(--shadow-pink)' }}
           >
-            Start Shopping
+            {t('cart.exploreShop', 'Start Shopping')}
           </motion.button>
         </motion.div>
       ) : (
@@ -125,25 +143,33 @@ const OrdersPage = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px dashed var(--border)', paddingBottom: '20px', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Order ID</div>
-                    <div style={{ fontWeight: 800, fontFamily: 'monospace', fontSize: '16px', color: 'var(--text)' }}>#{order._id.slice(-8).toUpperCase()}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      {t('orders.orderId', 'Order ID')}
+                    </div>
+                    <div style={{ fontWeight: 800, fontFamily: 'monospace', fontSize: '16px', color: 'var(--plum)' }}>#{order._id.slice(-8).toUpperCase()}</div>
                   </div>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Date Placed</div>
-                    <div style={{ fontWeight: 700, color: 'var(--text)' }}>{new Date(order.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      {t('orders.date', 'Placed On')}
+                    </div>
+                    <div style={{ fontWeight: 700, color: 'var(--plum)' }}>{new Date(order.createdAt).toLocaleDateString()}</div>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Status</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      {t('orders.status', 'Status')}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: statusColors.bg, color: statusColors.text, padding: '6px 12px', borderRadius: '20px', fontWeight: 800, fontSize: '13px' }}>
-                      {getStatusIcon(order.status)} {order.status}
+                      {getStatusIcon(order.status)} {getStatusLabel(order.status)}
                     </div>
                   </div>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-end', flex: '1 1 100px' }}>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Total Amount</div>
-                    <div style={{ fontWeight: 800, fontSize: '22px', color: 'var(--primary)' }}>₹{order.totalAmount?.toLocaleString('en-IN')}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      {t('orders.total', 'Total Amount')}
+                    </div>
+                    <div style={{ fontWeight: 900, fontSize: '22px', color: 'var(--primary)', fontFamily: 'var(--font-display)' }}>₹{order.totalAmount?.toLocaleString('en-IN')}</div>
                   </div>
                 </div>
                 
@@ -157,11 +183,11 @@ const OrdersPage = () => {
                         </div>
                       </div>
                       <div style={{ flex: 1, overflow: 'hidden' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontWeight: 800, color: 'var(--plum)', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {item.productId?.name || 'Magical Product'}
                         </div>
-                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                          Qty: {item.quantity}
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>
+                          {t('product.quantity', 'Quantity')}: {item.quantity}
                         </div>
                       </div>
                     </div>

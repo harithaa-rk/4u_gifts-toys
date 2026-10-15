@@ -31,6 +31,33 @@ const productSchema = new mongoose.Schema({
   // NEW FIELD FOR AR/VR
   model3d: { type: String },
 
+  // Optional original/reference price for discounts
+  originalPrice: { type: Number },
+
+  // Variants (Colors, Sizes, Styles, Packs)
+  variants: [
+    {
+      name: { type: String }, // e.g. "Color", "Size", "Style"
+      options: [{ type: String }], // e.g. ["Pink", "Lavender", "Sky Blue"]
+      optionImages: { type: Map, of: String },
+      priceDelta: { type: Number, default: 0 },
+      stock: { type: Number },
+      sku: { type: String },
+    }
+  ],
+
+  // Structured specifications
+  specifications: [
+    {
+      key: { type: String },
+      value: { type: String }
+    }
+  ],
+
+  // Ratings calculation
+  averageRating: { type: Number, default: 5.0 },
+  ratingCount: { type: Number, default: 0 },
+
   createdAt: {
     type: Date,
     default: Date.now

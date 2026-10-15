@@ -1,5 +1,6 @@
 import express from "express";
 import Product from "../models/Product.js";
+import Review from "../models/Review.js";
 import upload from "../middleware/uploadMiddleware.js";
 import uploadModel3d from "../middleware/uploadModel3dMiddleware.js";
 
@@ -97,6 +98,82 @@ router.delete("/:id/model3d", async (req, res) => {
     );
     if (!updated) return res.status(404).json({ error: "Product not found" });
     res.json({ message: "3D model removed", product: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET reviews for a product
+router.get("/:id/reviews", async (req, res) => {
+  try {
+    const reviews = await Review.find({ productId: req.params.id }).sort({ createdAt: -1 });
+    
+    // Calculate rating distribution
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    let sum = 0;
+    reviews.forEach((r) => {
+      const rounded = Math.round(r.rating) || 5;
+      if (counts[rounded] !== undefined) counts[rounded]++;
+      sum += r.rating;
+    });
+
+    const averageRating = reviews.length > 0 ? (sum / reviews.length).toFixed(1) : 5.0;
+
+    res.json({
+      reviews,
+      totalCount: reviews.length,
+      averageRating: parseFloat(averageRating),
+      distribution: counts,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST review for a product
+router.post("/:id/reviews", async (req, res) => {
+  try {
+    const { rating, title, comment, userName, userEmail, userId } = req.body;
+    if (!rating || !comment || !userName) {
+      return res.status(400).json({ error: "Rating, name, and comment are required." });
+    }
+
+    const numRating = Number(rating);
+    if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+      return res.status(400).json({ error: "Rating must be a number between 1 and 5." });
+    }
+
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ error: "Product not found." });
+
+    const review = new Review({
+      productId: req.params.id,
+      userId: userId || undefined,
+      userName: userName.trim(),
+      userEmail: userEmail?.trim(),
+      rating: numRating,
+      title: title?.trim() || "Magical find! ✨",
+      comment: comment.trim(),
+      isVerifiedPurchase: true,
+    });
+
+    await review.save();
+
+    // Recalculate average rating for the product
+    const allReviews = await Review.find({ productId: req.params.id });
+    const avg = allReviews.reduce((acc, cur) => acc + cur.rating, 0) / allReviews.length;
+
+    product.averageRating = parseFloat(avg.toFixed(1));
+    product.ratingCount = allReviews.length;
+    await product.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Review submitted successfully!",
+      review,
+      productRating: product.averageRating,
+      ratingCount: product.ratingCount,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

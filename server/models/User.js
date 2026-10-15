@@ -8,7 +8,10 @@ const userSchema = new mongoose.Schema({
   otp: String,
   otpExpires: Date,
   phone: String,
-role: { type: String, default: "customer" },
+  role: { type: String, default: "customer" },
+  avatar: String,
+  googleId: String,
+  preferredLanguage: { type: String, enum: ["en", "ta", "hi"], default: "en" },
 });
 
 

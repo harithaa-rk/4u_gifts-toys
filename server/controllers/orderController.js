@@ -19,12 +19,15 @@ const sendOrderNotification = async (order) => {
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: process.env.ADMIN_EMAIL, // admin email address in .env
-      subject: `New Order Received - ${order._id}`,
+      to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER, // admin email address in .env
+      subject: `New Order Received - ₹${order.totalAmount} (${order.paymentMethod?.toUpperCase()})`,
       html: `<h3>New Order Received</h3>
-        <p>Order ID: ${order._id}</p>
-        <p>User ID: ${order.userId}</p>
-        <p>Total Amount: ₹${order.totalAmount}</p>`,
+        <p><strong>Order ID:</strong> ${order._id}</p>
+        <p><strong>Total Amount:</strong> ₹${order.totalAmount}</p>
+        <p><strong>Payment Method:</strong> ${order.paymentMethod?.toUpperCase()}</p>
+        <p><strong>Payment Status:</strong> ${order.paymentStatus}</p>
+        ${order.paymentDetails?.utrNumber ? `<p><strong>UTR / Transaction Reference:</strong> ${order.paymentDetails.utrNumber}</p>` : ''}
+        ${order.paymentDetails?.upiApp ? `<p><strong>UPI App:</strong> ${order.paymentDetails.upiApp}</p>` : ''}`,
     };
     await transporter.sendMail(mailOptions);
   } catch (err) {
@@ -34,7 +37,7 @@ const sendOrderNotification = async (order) => {
 
 export const createOrder = async (req, res) => {
   const userId = req.userId; // set by verifyToken middleware
-  const { products } = req.body; // products: [{ productId, quantity }]
+  const { products, shippingAddress, paymentMethod, paymentDetails, paymentStatus } = req.body; // products: [{ productId, quantity }]
   try {
     // Populate product details to compute total price
     const populated = await Promise.all(
@@ -45,19 +48,40 @@ export const createOrder = async (req, res) => {
       })
     );
     const total = populated.reduce((sum, p) => sum + p.price * p.quantity, 0);
+
+    // Determine initial payment status
+    let initialPaymentStatus = "Paid";
+    if (paymentMethod === "cod") {
+      initialPaymentStatus = "Pending";
+    } else if (["gpay", "upi", "bank_transfer"].includes(paymentMethod)) {
+      initialPaymentStatus = paymentDetails?.utrNumber ? "Paid" : "Pending";
+    } else if (paymentStatus) {
+      initialPaymentStatus = paymentStatus;
+    }
+
     const order = new Order({ 
       userId, 
       products, 
       totalAmount: total, 
-      shippingAddress: req.body.shippingAddress,
-      paymentMethod: req.body.paymentMethod || "card",
-      paymentStatus: req.body.paymentMethod === "cod" ? "Pending" : "Paid"
+      shippingAddress: shippingAddress || {},
+      paymentMethod: paymentMethod || "gpay",
+      paymentStatus: initialPaymentStatus,
+      paymentDetails: {
+        utrNumber: paymentDetails?.utrNumber || "",
+        upiApp: paymentDetails?.upiApp || (paymentMethod === "gpay" ? "Google Pay" : ""),
+        payerUpiId: paymentDetails?.payerUpiId || "",
+        referenceId: paymentDetails?.referenceId || "",
+        receiptUrl: paymentDetails?.receiptUrl || "",
+        paidAt: initialPaymentStatus === "Paid" ? new Date() : null,
+        verifiedByAdmin: false,
+      }
     });
     await order.save();
     
     // Create DB notification
+    const utrSnippet = order.paymentDetails?.utrNumber ? ` (UTR: ${order.paymentDetails.utrNumber})` : "";
     const notification = new Notification({
-      message: `New order placed for ₹${total.toLocaleString("en-IN")}`,
+      message: `New order placed for ₹${total.toLocaleString("en-IN")} via ${order.paymentMethod?.toUpperCase()}${utrSnippet}`,
       orderId: order._id,
     });
     await notification.save();

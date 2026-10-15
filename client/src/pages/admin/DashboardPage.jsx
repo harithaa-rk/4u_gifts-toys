@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { useTranslation } from "react-i18next";
+import LanguageSelector from "../../components/LanguageSelector";
 import { API_BASE_URL } from "../../utils/constants";
 const API = API_BASE_URL;
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -59,6 +61,7 @@ function Field({ label, children }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
+  const { t } = useTranslation();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [aboutInfo, setAboutInfo] = useState({ description: "", images: [], stats: [] });
@@ -76,6 +79,21 @@ export default function AdminDashboard() {
   const [view, setView] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast] = useState(null);
+
+  // Bank & UPI Payment Configuration
+  const [paymentConfig, setPaymentConfig] = useState({
+    upiId: "haritha610kumar@okicici",
+    payeeName: "Haritha Kumar",
+    qrImageUrl: "/admin_upi_qr.jpg",
+    gpayPhone: "+91 98765 43210",
+    bankName: "State Bank of India",
+    accountNumber: "409283719283",
+    ifscCode: "SBIN0004021",
+    accountHolderName: "4U Toys and Gifts Private Limited",
+    branch: "Coimbatore Main Branch",
+  });
+  const [editingPaymentConfig, setEditingPaymentConfig] = useState(false);
+  const [savingPaymentConfig, setSavingPaymentConfig] = useState(false);
 
   // Product modal
   const [productModal, setProductModal] = useState(false);
@@ -111,16 +129,18 @@ export default function AdminDashboard() {
         const token = localStorage.getItem("token");
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        const [prodRes, catRes, aboutRes, notifRes] = await Promise.all([
+        const [prodRes, catRes, aboutRes, notifRes, payRes] = await Promise.all([
           axios.get(`${API}/products`),
           axios.get(`${API}/categories`),
           axios.get(`${API}/about`).catch(() => ({ data: { description: "", images: [], stats: [] } })),
-          token ? axios.get(`${API}/notifications`, { headers }).catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
+          token ? axios.get(`${API}/notifications`, { headers }).catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+          axios.get(`${API}/payment/settings`).catch(() => ({ data: { settings: null } }))
         ]);
         setProducts(prodRes.data);
         setCategories(catRes.data);
         if (aboutRes?.data) setAboutInfo({ ...aboutRes.data, stats: aboutRes.data.stats || [] });
         setNotifications(notifRes.data || []);
+        if (payRes.data?.settings) setPaymentConfig(payRes.data.settings);
       } catch (err) {
         console.error(err);
         setDbError("Failed to load data from server.");
@@ -130,9 +150,9 @@ export default function AdminDashboard() {
     })();
   }, []);
 
-  // Fetch paginated orders whenever ordersPage changes
+  // Fetch paginated orders whenever ordersPage changes or view is orders/payments
   useEffect(() => {
-    if (view === "orders") {
+    if (view === "orders" || view === "payments") {
       const fetchOrders = async () => {
         const token = localStorage.getItem("token");
         if (!token) return;
@@ -359,12 +379,13 @@ export default function AdminDashboard() {
   };
 
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: "▦" },
-    { id: "orders", label: "Orders", icon: "🛍" },
-    { id: "payments", label: "Payments", icon: "💳" },
-    { id: "products", label: "Products", icon: "📦" },
-    { id: "categories", label: "Categories", icon: "🗂" },
-    { id: "about", label: "Shop Profile", icon: "🏢" },
+    { id: "dashboard", label: t("admin.dashboard", "Dashboard"), icon: "▦" },
+    { id: "orders", label: t("admin.orders", "Orders"), icon: "🛍" },
+    { id: "payments", label: t("admin.payments", "Payments"), icon: "💳" },
+    { id: "products", label: t("admin.products", "Products"), icon: "📦" },
+    { id: "categories", label: t("admin.categories", "Categories"), icon: "🗂" },
+    { id: "about", label: t("admin.about", "Shop Profile"), icon: "🏢" },
+    { id: "settings", label: t("admin.settings", "Settings"), icon: "⚙️" },
   ];
 
   const SortIcon = ({ field }) => (
@@ -409,17 +430,43 @@ export default function AdminDashboard() {
         <header style={{ background: "#fff", padding: "16px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ede8e3", position: "sticky", top: 0, zIndex: 100 }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a1a2e" }}>
-              {view === "dashboard" ? "Dashboard Overview" : view === "orders" ? "Order Management" : view === "products" ? "Product Management" : view === "about" ? "Shop Profile" : "Categories"}
+              {view === "dashboard" ? t("admin.dashboard", "Dashboard Overview") :
+               view === "orders" ? t("admin.orders", "Order Management") :
+               view === "products" ? t("admin.products", "Product Management") :
+               view === "about" ? t("admin.about", "Shop Profile") :
+               view === "settings" ? t("admin.settingsTitle", "Settings") :
+               t("admin.categories", "Categories")}
             </h1>
             <p style={{ margin: 0, fontSize: 12, color: "#888" }}>4U Toys and Treats</p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            {/* Global Admin Language Selector */}
+            <LanguageSelector variant="compact" />
+
+            {/* Back to Store link */}
+            <a
+              href="/"
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#1565c0",
+                textDecoration: "none",
+                background: "#f0f8ff",
+                padding: "8px 14px",
+                borderRadius: 20,
+                border: "1px solid #bbdefb",
+              }}
+            >
+              {t("admin.backToStore", "← Store")}
+            </a>
+
             {/* Notifications Bell */}
             <div style={{ position: "relative" }}>
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
                 style={{ background: "#f5f2ef", border: "none", borderRadius: "50%", width: 40, height: 40, cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}
               >
+
                 🔔
                 {notifications.filter(n => !n.read).length > 0 && (
                   <span style={{ position: "absolute", top: -2, right: -2, background: "#e53935", color: "#fff", fontSize: 10, fontWeight: "bold", width: 18, height: 18, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -629,13 +676,237 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* PAYMENTS */}
+              {/* PAYMENTS & BANK SETTINGS */}
               {view === "payments" && (
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-                    <div style={{ fontSize: 14, color: "#555" }}>Manage customer payments & transactions</div>
+                  {/* Top Bar */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+                    <div>
+                      <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#1a1a2e" }}>Real-Time Payments & Bank Management</h2>
+                      <div style={{ fontSize: 13, color: "#777" }}>Configure admin bank account, UPI ID, and verify incoming customer transfers</div>
+                    </div>
+                    <button
+                      onClick={() => setEditingPaymentConfig(!editingPaymentConfig)}
+                      style={{
+                        padding: "9px 18px",
+                        background: editingPaymentConfig ? "#4b5563" : "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 10,
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        boxShadow: "0 4px 14px rgba(37,99,235,0.25)",
+                      }}
+                    >
+                      {editingPaymentConfig ? "✕ Close Editor" : "⚙️ Edit Bank & UPI Details"}
+                    </button>
                   </div>
-                  
+
+                  {/* BANK & UPI SETTINGS CARD */}
+                  <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", padding: "22px 26px", marginBottom: 24, boxShadow: "0 6px 20px rgba(0,0,0,0.03)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 24 }}>🏦</span>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 16, color: "#0f172a" }}>Store Receiving Bank & Google Pay Configuration</div>
+                          <div style={{ fontSize: 12, color: "#64748b" }}>Live credentials used by customers during checkout to pay directly to your account</div>
+                        </div>
+                      </div>
+                      <span style={{ background: "#dcfce7", color: "#15803d", padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800 }}>
+                        ● Live Active
+                      </span>
+                    </div>
+
+                    {editingPaymentConfig ? (
+                      /* EDIT FORM */
+                      <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        setSavingPaymentConfig(true);
+                        try {
+                          const token = localStorage.getItem("token");
+                          const res = await axios.put(`${API}/payment/settings`, paymentConfig, {
+                            headers: { Authorization: `Bearer ${token}` }
+                          });
+                          if (res.data?.success) {
+                            showToast("Admin Bank & UPI settings updated! 🏦", "success");
+                            setEditingPaymentConfig(false);
+                          }
+                        } catch (err) {
+                          showToast("Failed to save bank settings.", "error");
+                        } finally {
+                          setSavingPaymentConfig(false);
+                        }
+                      }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 16 }}>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>Google Pay / UPI ID (VPA)</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.upiId}
+                              onChange={(e) => setPaymentConfig({ ...paymentConfig, upiId: e.target.value })}
+                              style={inp}
+                              placeholder="e.g. haritha610kumar@okicici"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>Payee Display Name</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.payeeName}
+                              onChange={(e) => setPaymentConfig({ ...paymentConfig, payeeName: e.target.value })}
+                              style={inp}
+                              placeholder="e.g. Haritha Kumar"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>UPI QR Code Image (Path or URL)</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.qrImageUrl || ""}
+                              onChange={(e) => setPaymentConfig({ ...paymentConfig, qrImageUrl: e.target.value })}
+                              style={inp}
+                              placeholder="e.g. /admin_upi_qr.jpg"
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>GPay / UPI Registered Mobile</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.gpayPhone}
+                              onChange={(e) => setPaymentConfig({ ...paymentConfig, gpayPhone: e.target.value })}
+                              style={inp}
+                              placeholder="e.g. +91 98765 43210"
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>Bank Name</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.bankName}
+                              onChange={(e) => setPaymentConfig({ ...paymentConfig, bankName: e.target.value })}
+                              style={inp}
+                              placeholder="e.g. State Bank of India"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>Account Number</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.accountNumber}
+                              onChange={(e) => setPaymentConfig({ ...paymentConfig, accountNumber: e.target.value })}
+                              style={inp}
+                              placeholder="e.g. 409283719283"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>IFSC Code</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.ifscCode}
+                              onChange={(e) => setPaymentConfig({ ...paymentConfig, ifscCode: e.target.value.toUpperCase() })}
+                              style={inp}
+                              placeholder="e.g. SBIN0004021"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>Account Holder Full Name</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.accountHolderName}
+                              onChange={(e) => setPaymentConfig({ ...paymentConfig, accountHolderName: e.target.value })}
+                              style={inp}
+                              placeholder="e.g. 4U Toys and Gifts Private Limited"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>Bank Branch</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.branch}
+                              onChange={(e) => setPaymentConfig({ ...paymentConfig, branch: e.target.value })}
+                              style={inp}
+                              placeholder="e.g. Coimbatore Main Branch"
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>⚡ Razorpay Key ID</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.razorpayKeyId || ""}
+                              onChange={(e) => setPaymentConfig({ ...paymentConfig, razorpayKeyId: e.target.value })}
+                              style={inp}
+                              placeholder="rzp_test_... or rzp_live_..."
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                          <button
+                            type="button"
+                            onClick={() => setEditingPaymentConfig(false)}
+                            style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#f8fafc", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={savingPaymentConfig}
+                            style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#16a34a", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+                          >
+                            {savingPaymentConfig ? "Saving..." : "Save Bank & Razorpay Details ✓"}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      /* READ-ONLY SUMMARY GRID */
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 16, background: "#f8fafc", padding: "18px 22px", borderRadius: 14, border: "1px solid #e2e8f0", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, gridColumn: "1 / -1", background: "#fff", padding: "12px 16px", borderRadius: 12, border: "1px solid #cbd5e1" }}>
+                          <img
+                            src={paymentConfig.qrImageUrl || "/admin_upi_qr.jpg"}
+                            alt="Active UPI QR Code"
+                            style={{ width: 68, height: 68, objectFit: "contain", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                          <div>
+                            <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 800, textTransform: "uppercase" }}>Active Customer Payment Destination</div>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>{paymentConfig.payeeName}</div>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#2563eb", fontFamily: "monospace" }}>{paymentConfig.upiId}</div>
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>⚡ Razorpay Key ID</div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: "#e11d48", fontFamily: "monospace" }}>{paymentConfig.razorpayKeyId || "rzp_test_4uStoreDemo123"}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Admin UPI ID (GPay)</div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: "#1d4ed8", fontFamily: "monospace" }}>{paymentConfig.upiId}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Payee Name</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{paymentConfig.payeeName}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Bank Account No.</div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: "#6d28d9", fontFamily: "monospace" }}>{paymentConfig.accountNumber}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Bank & IFSC</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{paymentConfig.bankName} ({paymentConfig.ifscCode})</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* RECENT TRANSACTIONS TABLE */}
                   {filteredOrders.length === 0 ? (
                     <div style={{ background: "#fff", borderRadius: 14, padding: 60, textAlign: "center", color: "#bbb", fontSize: 15 }}>
                       <div style={{ fontSize: 40, marginBottom: 12 }}>💳</div>
@@ -647,50 +918,69 @@ export default function AdminDashboard() {
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                           <thead>
                             <tr style={{ background: "#faf9f7" }}>
-                              <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#555", borderBottom: "1px solid #ede8e3" }}>Transaction / Order ID</th>
+                              <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#555", borderBottom: "1px solid #ede8e3" }}>Order / Date</th>
                               <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#555", borderBottom: "1px solid #ede8e3" }}>Customer</th>
                               <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#555", borderBottom: "1px solid #ede8e3" }}>Amount</th>
-                              <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#555", borderBottom: "1px solid #ede8e3" }}>Method</th>
+                              <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#555", borderBottom: "1px solid #ede8e3" }}>Payment Method & UTR</th>
                               <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "#555", borderBottom: "1px solid #ede8e3" }}>Payment Status</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {filteredOrders.map((o) => (
-                              <tr key={o._id} style={{ borderBottom: "1px solid #f5f2ef" }}>
-                                <td style={{ padding: "14px 16px", fontFamily: "monospace", color: "#666" }}>
-                                  <div style={{ fontWeight: 600 }}>{o._id}</div>
-                                  <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>
-                                    {new Date(o.createdAt).toLocaleDateString()} at {new Date(o.createdAt).toLocaleTimeString()}
-                                  </div>
-                                </td>
-                                <td style={{ padding: "14px 16px" }}>
-                                  <div style={{ fontWeight: 600, color: "#1a1a2e" }}>{o.userId?.name || "Unknown"}</div>
-                                  <div style={{ fontSize: 11, color: "#888" }}>{o.userId?.email || ""}</div>
-                                </td>
-                                <td style={{ padding: "14px 16px", fontWeight: 700, color: "#2e7d32" }}>₹{o.totalAmount?.toLocaleString("en-IN")}</td>
-                                <td style={{ padding: "14px 16px", fontWeight: 600, textTransform: 'uppercase', color: o.paymentMethod === 'cod' ? '#f57f17' : '#1565c0' }}>
-                                  {o.paymentMethod || 'CARD'}
-                                </td>
-                                <td style={{ padding: "14px 16px" }}>
-                                  <select 
-                                    value={o.paymentStatus || 'Pending'} 
-                                    onChange={(e) => handleUpdatePaymentStatus(o._id, e.target.value)}
-                                    style={{
-                                      background: o.paymentStatus === "Pending" ? "#fff8e1" : o.paymentStatus === "Paid" ? "#e8f5e9" : o.paymentStatus === "Failed" ? "#ffebee" : "#f3e5f5",
-                                      color: o.paymentStatus === "Pending" ? "#f57f17" : o.paymentStatus === "Paid" ? "#2e7d32" : o.paymentStatus === "Failed" ? "#c62828" : "#7b1fa2",
-                                      border: "1px solid transparent",
-                                      borderRadius: 6, padding: "4px 8px", fontSize: 12, fontWeight: 600,
-                                      outline: "none", cursor: "pointer"
-                                    }}
-                                  >
-                                    <option value="Pending">Pending</option>
-                                    <option value="Paid">Paid</option>
-                                    <option value="Failed">Failed</option>
-                                    <option value="Refunded">Refunded</option>
-                                  </select>
-                                </td>
-                              </tr>
-                            ))}
+                            {filteredOrders.map((o) => {
+                              const method = o.paymentMethod?.toLowerCase() || 'card';
+                              const methodBadge = method === 'gpay' ? '🟢 Google Pay' : method === 'bank_transfer' ? '🏦 Bank Transfer' : method === 'cod' ? '📦 Cash on Delivery' : '💳 Card';
+                              const utr = o.paymentDetails?.utrNumber;
+
+                              return (
+                                <tr key={o._id} style={{ borderBottom: "1px solid #f5f2ef" }}>
+                                  <td style={{ padding: "14px 16px", fontFamily: "monospace", color: "#666" }}>
+                                    <div style={{ fontWeight: 600 }}>{o._id}</div>
+                                    <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>
+                                      {new Date(o.createdAt).toLocaleDateString()} at {new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: "14px 16px" }}>
+                                    <div style={{ fontWeight: 600, color: "#1a1a2e" }}>{o.userId?.name || "Unknown"}</div>
+                                    <div style={{ fontSize: 11, color: "#888" }}>{o.userId?.email || ""}</div>
+                                  </td>
+                                  <td style={{ padding: "14px 16px", fontWeight: 700, color: "#2e7d32" }}>₹{o.totalAmount?.toLocaleString("en-IN")}</td>
+                                  
+                                  {/* Method & UTR */}
+                                  <td style={{ padding: "14px 16px" }}>
+                                    <div style={{ fontWeight: 700, fontSize: 13, color: method === 'gpay' ? '#1d4ed8' : method === 'bank_transfer' ? '#6d28d9' : '#1a1a2e' }}>
+                                      {methodBadge}
+                                    </div>
+                                    {utr ? (
+                                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#eff6ff", color: "#1d4ed8", padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, fontFamily: "monospace", marginTop: 4 }}>
+                                        UTR: {utr}
+                                      </div>
+                                    ) : (
+                                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>No UTR</div>
+                                    )}
+                                  </td>
+
+                                  {/* Payment Status Dropdown */}
+                                  <td style={{ padding: "14px 16px" }}>
+                                    <select 
+                                      value={o.paymentStatus || 'Pending'} 
+                                      onChange={(e) => handleUpdatePaymentStatus(o._id, e.target.value)}
+                                      style={{
+                                        background: o.paymentStatus === "Pending" ? "#fff8e1" : o.paymentStatus === "Paid" ? "#e8f5e9" : o.paymentStatus === "Failed" ? "#ffebee" : "#f3e5f5",
+                                        color: o.paymentStatus === "Pending" ? "#f57f17" : o.paymentStatus === "Paid" ? "#2e7d32" : o.paymentStatus === "Failed" ? "#c62828" : "#7b1fa2",
+                                        border: "1px solid transparent",
+                                        borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 700,
+                                        outline: "none", cursor: "pointer"
+                                      }}
+                                    >
+                                      <option value="Paid">✓ Paid</option>
+                                      <option value="Pending">⏳ Pending</option>
+                                      <option value="Failed">✗ Failed</option>
+                                      <option value="Refunded">↩ Refunded</option>
+                                    </select>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -927,7 +1217,41 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+
+              {/* SETTINGS VIEW (Language Customization & Admin Config) */}
+              {view === "settings" && (
+                <div style={{ background: "#fff", borderRadius: 16, padding: "32px 36px", border: "1px solid #ede8e3", maxWidth: 880, boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
+                    <span style={{ fontSize: 32 }}>⚙️</span>
+                    <div>
+                      <h2 style={{ fontSize: 20, margin: 0, fontWeight: 800, color: "#1a1a2e" }}>
+                        {t('admin.settingsTitle', 'Admin System Settings')}
+                      </h2>
+                      <p style={{ margin: "4px 0 0", color: "#666", fontSize: 13 }}>
+                        {t('admin.languageDesc', 'Switch the admin dashboard and entire website language instantly.')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ height: 1, background: "#ede8e3", margin: "24px 0" }} />
+
+                  <Section label={t('admin.languageSection', 'Interface Language Selection')}>
+                    <p style={{ fontSize: 13, color: "#555", marginBottom: 16 }}>
+                      Select the preferred operating language. All admin tables, metrics, navigation, and user-facing shop sections update in real-time without requiring a page reload.
+                    </p>
+                    <LanguageSelector variant="inline" />
+                  </Section>
+
+                  <div style={{ marginTop: 24, padding: "16px 20px", borderRadius: 12, background: "#faf9f7", border: "1px solid #ede8e3", display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 20 }}>🌐</span>
+                    <div style={{ fontSize: 13, color: "#444" }}>
+                      <strong>Real-Time Synchronization:</strong> Your selected language is automatically retained across browser refreshes and session restarts.
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
+
           )}
         </main>
       </div>
