@@ -8,6 +8,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from './LanguageSelector';
+import NotificationBell from './notifications/NotificationBell';
 
 const NAV_LINKS = [
   { name: 'Shop',        path: '/shop' },
@@ -432,6 +433,8 @@ const Navbar = ({ onAdminClick }) => {
               )}
             </AnimatePresence>
 
+            {/* In-app Notifications */}
+            {isLoggedIn && <NotificationBell />}
 
             {/* Wishlist */}
             <motion.button

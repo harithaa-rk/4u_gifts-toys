@@ -1,187 +1,191 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useWishlist } from "../context/WishlistContext";
-import { useCart } from "../context/CartContext";
-import { useAuth } from "../context/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { 
-  Heart, ShoppingBag, Trash2, ChevronRight, Zap, Sparkles, 
-  Share2, Copy, Check, Search, ArrowUpDown, CheckCircle, 
-  AlertCircle, ExternalLink, Filter, RotateCcw, Package,
-  Truck, ShieldCheck, Tag, ArrowRight
+  Heart, Plus, Users, Globe, Lock, Share2, Sparkles, 
+  Trash2, Copy, Search, Check, FolderHeart, ArrowRight, 
+  Archive, RotateCcw, AlertCircle, ShoppingBag, Zap, 
+  ChevronRight, MoreVertical, ShieldCheck, Mail, CheckCircle
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import axios from "axios";
 import toast from "react-hot-toast";
+import axios from "axios";
+import { useAuth } from "../context/AuthContext";
+import { useCollaborativeWishlist } from "../context/CollaborativeWishlistContext";
 import { API_BASE_URL } from "../utils/constants";
-import TemuInstantBuyModal from "../components/payment/TemuInstantBuyModal";
-
-const CATEGORIES = [
-  { id: "all", label: "All Items", icon: "✨" },
-  { id: "Toys", label: "Toys", icon: "🧸" },
-  { id: "Baby", label: "Baby Essentials", icon: "🍼" },
-  { id: "Mommy", label: "Mommy & Care", icon: "👩‍👧" },
-  { id: "Father", label: "Father's Day", icon: "👔" },
-  { id: "Decor", label: "Home Decor", icon: "🌸" },
-  { id: "Fancy", label: "Fancy Gifts", icon: "🎀" },
-];
 
 const WishlistPage = () => {
   const { t } = useTranslation();
-  const { wishlistItems, toggleWishlist, removeFromWishlist, clearWishlist, isInWishlist } = useWishlist();
-  const { addToCart } = useCart();
-  const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { isLoggedIn, currentUser } = useAuth();
 
-  // Instant Razorpay Purchase State
-  const [instantBuyItem, setInstantBuyItem] = useState(null);
-  const [instantBuyOpen, setInstantBuyOpen] = useState(false);
+  const {
+    ownedWishlists,
+    sharedWishlists,
+    archivedWishlists,
+    loadingWishlists,
+    pendingInvitations,
+    createWishlist,
+    duplicateWishlist,
+    toggleArchiveWishlist,
+    deleteWishlist,
+    acceptInvitation,
+    rejectInvitation,
+  } = useCollaborativeWishlist();
 
-  // Recommendations state
-  const [recommendations, setRecommendations] = useState([]);
-  const [loadingRecs, setLoadingRecs] = useState(true);
-
-  // Filter, Search, and Sort state
+  // Active Tab: 'owned' | 'shared' | 'public' | 'archived'
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "owned");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [sortBy, setSortBy] = useState("recent");
-  const [inStockOnly, setInStockOnly] = useState(false);
+  const [privacyFilter, setPrivacyFilter] = useState("all");
 
-  // Share and Clear Modal state
-  const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  // Public wishlists discovery
+  const [publicWishlists, setPublicWishlists] = useState([]);
+  const [loadingPublic, setLoadingPublic] = useState(false);
 
-  // Fetch Recommended / Trending Products from Catalogue
-  useEffect(() => {
-    const fetchRecs = async () => {
-      try {
-        const res = await axios.get(`${API_BASE_URL}/products`);
-        if (Array.isArray(res.data)) {
-          const active = res.data.filter((p) => p.status === "active" || p.status === "low_stock" || !p.status);
-          setRecommendations(active.slice(0, 8));
-        }
-      } catch (err) {
-        console.error("Error fetching wishlist recommendations:", err);
-      } finally {
-        setLoadingRecs(false);
-      }
-    };
-    fetchRecs();
-  }, []);
+  // Create Modal State
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newVisibility, setNewVisibility] = useState("shared");
+  const [newEmails, setNewEmails] = useState("");
+  const [newRole, setNewRole] = useState("editor");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Filter and Sort Wishlist Items
-  const filteredWishlist = useMemo(() => {
-    return wishlistItems
-      .filter((item) => {
-        // Category filter
-        const matchCat =
-          selectedCategory === "all" ||
-          item.category?.toLowerCase() === selectedCategory.toLowerCase();
+  // Quick Action Menu State
+  const [activeMenuId, setActiveMenuId] = useState(null);
 
-        // Search query
-        const matchSearch =
-          !searchQuery.trim() ||
-          item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.category?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Edit Wishlist Modal State
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingWishlist, setEditingWishlist] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editVisibility, setEditVisibility] = useState("private");
+  const [isEditingSubmitting, setIsEditingSubmitting] = useState(false);
 
-        // In Stock filter
-        const matchStock = inStockOnly ? (item.quantity ?? 1) > 0 : true;
+  const handleOpenEdit = (w) => {
+    setActiveMenuId(null);
+    setEditingWishlist(w);
+    setEditTitle(w.name || "");
+    setEditDescription(w.description || "");
+    setEditVisibility(w.visibility || "private");
+    setEditModalOpen(true);
+  };
 
-        return matchCat && matchSearch && matchStock;
-      })
-      .sort((a, b) => {
-        if (sortBy === "price_asc") return (Number(a.price) || 0) - (Number(b.price) || 0);
-        if (sortBy === "price_desc") return (Number(b.price) || 0) - (Number(a.price) || 0);
-        if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
-        return 0; // 'recent' maintains default list order
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    if (!editTitle.trim()) {
+      toast.error("Wishlist title is required.");
+      return;
+    }
+    setIsEditingSubmitting(true);
+    try {
+      await updateWishlist(editingWishlist._id, {
+        name: editTitle.trim(),
+        description: editDescription.trim(),
+        visibility: editVisibility,
       });
-  }, [wishlistItems, selectedCategory, searchQuery, inStockOnly, sortBy]);
-
-  // Total Wishlist Value
-  const totalWishlistValue = useMemo(() => {
-    return wishlistItems.reduce((acc, curr) => acc + (Number(curr.price) || 0), 0);
-  }, [wishlistItems]);
-
-  // Bulk Actions
-  const handleOpenDirectBuy = (item) => {
-    setInstantBuyItem(item);
-    setInstantBuyOpen(true);
-  };
-
-  const handleBuyAllWishlist = () => {
-    if (wishlistItems.length === 0) return;
-    setInstantBuyItem(wishlistItems);
-    setInstantBuyOpen(true);
-  };
-
-  const handleMoveAllToCart = () => {
-    if (!isLoggedIn) {
-      toast.error(t("auth.loginRequired", "Please login to add items to your cart! 🛍️"));
-      navigate("/login");
-      return;
+      toast.success("Wishlist details updated! ✨");
+      setEditModalOpen(false);
+      setEditingWishlist(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update wishlist.");
+    } finally {
+      setIsEditingSubmitting(false);
     }
-    if (wishlistItems.length === 0) return;
+  };
 
-    wishlistItems.forEach((item) => {
-      addToCart(item);
+  // Sync tab with URL
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
+  // Fetch Public Collections when on 'public' tab
+  useEffect(() => {
+    if (activeTab === "public") {
+      const fetchPublic = async () => {
+        setLoadingPublic(true);
+        try {
+          const res = await axios.get(`${API_BASE_URL}/collaborative-wishlists/public`);
+          if (res.data.success) {
+            setPublicWishlists(res.data.wishlists || []);
+          }
+        } catch (err) {
+          console.error("Error fetching public wishlists:", err);
+        } finally {
+          setLoadingPublic(false);
+        }
+      };
+      fetchPublic();
+    }
+  }, [activeTab]);
+
+  // Filtered List based on Active Tab, Search, and Privacy
+  const currentList = useMemo(() => {
+    let list = [];
+    if (activeTab === "owned") list = ownedWishlists;
+    else if (activeTab === "shared") list = sharedWishlists;
+    else if (activeTab === "archived") list = archivedWishlists;
+    else if (activeTab === "public") return publicWishlists;
+
+    return list.filter((w) => {
+      const matchSearch =
+        !searchQuery.trim() ||
+        w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        w.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchPrivacy =
+        privacyFilter === "all" || w.visibility === privacyFilter;
+
+      return matchSearch && matchPrivacy;
     });
-    toast.success(
-      t("wishlist.movedAllToCart", `All ${wishlistItems.length} items moved to your shopping bag! 🛍️`)
-    );
-  };
+  }, [activeTab, ownedWishlists, sharedWishlists, archivedWishlists, publicWishlists, searchQuery, privacyFilter]);
 
-  const handleMoveSingleToCart = (product) => {
-    if (!isLoggedIn) {
-      toast.error(t("auth.loginRequired", "Please login to add items to your cart! 🛍️"));
-      navigate("/login");
+  // Handle Create Wishlist
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    if (!newTitle.trim()) {
+      toast.error("Please enter a collection name.");
       return;
     }
-    addToCart(product);
-    removeFromWishlist(product._id);
-    toast.success(`${product.name} moved to cart! 🛍️`);
+
+    setIsSubmitting(true);
+    try {
+      const emailsList = newEmails
+        .split(/[\s,]+/)
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e.length > 0);
+
+      const created = await createWishlist({
+        name: newTitle.trim(),
+        description: newDesc.trim(),
+        visibility: newVisibility,
+        inviteEmails: emailsList,
+        inviteRole: newRole,
+      });
+
+      setCreateModalOpen(false);
+      setNewTitle("");
+      setNewDesc("");
+      setNewEmails("");
+      if (created?._id) {
+        navigate(`/wishlist/${created._id}`);
+      }
+    } catch {
+      // Toast handled by context
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleCopyShareLink = () => {
-    const url = `${window.location.origin}/wishlist?shared=true`;
-    navigator.clipboard.writeText(url);
-    setCopiedLink(true);
-    toast.success(t("wishlist.linkCopied", "Wishlist link copied to clipboard! 📋"));
-    setTimeout(() => setCopiedLink(false), 2500);
-  };
-
-  const handleShareWhatsApp = () => {
-    const url = `${window.location.origin}/wishlist?shared=true`;
-    const message = encodeURIComponent(
-      `Check out my favorite gifts & toys on 4U Toys & Treats boutique!\n${url}`
+  // Statistics
+  const totalItemsCount = useMemo(() => {
+    return [...ownedWishlists, ...sharedWishlists].reduce(
+      (acc, curr) => acc + (curr.items?.length || 0),
+      0
     );
-    window.open(`https://api.whatsapp.com/send?text=${message}`, "_blank");
-  };
-
-  // Animation variants
-  const containerVars = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.08 },
-    },
-  };
-
-  const itemVars = {
-    hidden: { opacity: 0, y: 25, scale: 0.96 },
-    show: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: { type: "spring", stiffness: 320, damping: 26 },
-    },
-    exit: {
-      opacity: 0,
-      scale: 0.9,
-      y: 15,
-      transition: { duration: 0.2 },
-    },
-  };
+  }, [ownedWishlists, sharedWishlists]);
 
   return (
     <div
@@ -192,1334 +196,828 @@ const WishlistPage = () => {
         fontFamily: "inherit",
         boxSizing: "border-box",
       }}
+      onClick={() => setActiveMenuId(null)}
     >
       <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
         
-        {/* ── BREADCRUMB ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>
-          <Link to="/" style={{ textDecoration: "none", color: "inherit", fontWeight: 700 }}>
-            {t("nav.home", "Home")}
-          </Link>
-          <ChevronRight size={14} />
-          <Link to="/shop" style={{ textDecoration: "none", color: "inherit", fontWeight: 700 }}>
-            {t("nav.shop", "Shop")}
-          </Link>
-          <ChevronRight size={14} />
-          <span style={{ color: "#FF3F9D", fontWeight: 800 }}>
-            {t("wishlist.title", "My Wishlist")}
-          </span>
-        </div>
+        {/* ── HERO BANNER & STATS ── */}
+        <motion.div
+          initial={{ opacity: 0, y: -15 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            background: "linear-gradient(135deg, #2D1432 0%, #402044 55%, #562758 100%)",
+            borderRadius: "32px",
+            padding: "36px 36px 32px",
+            color: "#fff",
+            marginBottom: 30,
+            position: "relative",
+            overflow: "hidden",
+            boxShadow: "0 20px 50px rgba(45, 14, 52, 0.25)",
+          }}
+        >
+          {/* Decorative Sparkles & Ribbon */}
+          <div
+            style={{
+              position: "absolute",
+              top: -30,
+              right: -30,
+              width: 180,
+              height: 180,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(255, 63, 157, 0.3) 0%, transparent 70%)",
+              pointerEvents: "none",
+            }}
+          />
 
-        {/* ════════════════════════════════════════════════════════════════
-            EMPTY WISHLIST STATE WITH RICH INTERACTIVE FUNCTIONALITIES
-        ════════════════════════════════════════════════════════════════ */}
-        {wishlistItems.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
-            
-            {/* Empty Hero Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              style={{
-                textAlign: "center",
-                padding: "60px 24px",
-                background: "linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 245, 250, 0.88) 100%)",
-                backdropFilter: "blur(20px)",
-                borderRadius: "32px",
-                border: "2px solid rgba(255, 99, 183, 0.25)",
-                boxShadow: "0 20px 60px rgba(64, 32, 68, 0.06)",
-                maxWidth: "740px",
-                margin: "0 auto",
-                width: "100%",
-              }}
-            >
-              <div style={{ position: "relative", display: "inline-block", marginBottom: 20 }}>
-                <motion.div
-                  animate={{ scale: [1, 1.15, 1] }}
-                  transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <Heart size={86} color="#FF3F9D" style={{ opacity: 0.2 }} />
-                </motion.div>
-                <Heart
-                  size={42}
-                  color="#FF3F9D"
-                  fill="#FF3F9D"
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 20 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <span
                   style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
+                    background: "linear-gradient(135deg, #FF3F9D, #8057E8)",
+                    color: "#fff",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    padding: "4px 12px",
+                    borderRadius: "var(--radius-pill)",
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
                   }}
-                />
+                >
+                  Gift Wishlists
+                </span>
+                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 700 }}>
+                  · 4U Toys & Gifts
+                </span>
               </div>
-
-              <span
-                style={{
-                  display: "inline-block",
-                  padding: "4px 14px",
-                  borderRadius: "var(--radius-pill)",
-                  background: "rgba(255, 63, 157, 0.12)",
-                  color: "#FF3F9D",
-                  fontSize: 12,
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: "1px",
-                  marginBottom: 10,
-                }}
-              >
-                {t("wishlist.curatedCollection", "Boutique Favorites")}
-              </span>
 
               <h1
                 style={{
                   fontFamily: "var(--font-display)",
-                  fontSize: "clamp(26px, 3.5vw, 36px)",
-                  color: "var(--plum)",
+                  fontSize: "clamp(26px, 3.8vw, 36px)",
                   fontWeight: 900,
                   margin: "0 0 10px",
+                  lineHeight: 1.2,
                 }}
               >
-                {t("wishlist.emptyTitle", "Your Wishlist is Empty")}
+                My Wishlists & Gift Collections 🎁
               </h1>
 
-              <p
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: "15px",
-                  margin: "0 auto 28px",
-                  lineHeight: "1.6",
-                  maxWidth: "520px",
-                }}
-              >
-                {t(
-                  "wishlist.emptyDesc",
-                  "Explore our magical collection and tap the heart icon on any toy or gift to save it for later or purchase instantly!"
-                )}
+              <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 15, maxWidth: 580, margin: 0, lineHeight: 1.5 }}>
+                Curate personalized gift collections for birthdays, celebrations, and festive occasions with family and friends.
               </p>
+            </div>
 
-              {/* Action Buttons */}
-              <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 30 }}>
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => navigate("/shop")}
-                  style={{
-                    padding: "14px 34px",
-                    background: "linear-gradient(135deg, #FF3F9D 0%, #8057E8 100%)",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "var(--radius-pill)",
-                    cursor: "pointer",
-                    fontSize: "16px",
-                    fontWeight: 900,
-                    boxShadow: "0 8px 24px rgba(255, 63, 157, 0.35)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
-                >
-                  <Sparkles size={18} /> {t("wishlist.browseProducts", "Browse All Gifts & Toys")}
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => navigate("/")}
-                  style={{
-                    padding: "14px 28px",
-                    background: "#FFFFFF",
-                    color: "var(--plum)",
-                    border: "1.5px solid rgba(255, 99, 183, 0.35)",
-                    borderRadius: "var(--radius-pill)",
-                    cursor: "pointer",
-                    fontSize: "15px",
-                    fontWeight: 800,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
-                >
-                  <span>🎡 {t("wishlist.tryVendingMachine", "Try 3D Magical Dispenser")}</span>
-                </motion.button>
-              </div>
-
-              {/* Quick Category Exploration Pills */}
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 12 }}>
-                  {t("wishlist.exploreByCat", "Explore Categories:")}
-                </div>
-                <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-                  {[
-                    { path: "/shop", label: "🧸 All Toys" },
-                    { path: "/baby", label: "🍼 Baby Essentials" },
-                    { path: "/mommy", label: "👩‍👧 Mommy Corner" },
-                    { path: "/father", label: "👔 Father's Day" },
-                    { path: "/decor", label: "🌸 Home Decor" },
-                    { path: "/fancy", label: "🎀 Fancy Collectibles" },
-                  ].map((cat) => (
-                    <button
-                      key={cat.path}
-                      type="button"
-                      onClick={() => navigate(cat.path)}
-                      style={{
-                        padding: "8px 16px",
-                        borderRadius: "var(--radius-pill)",
-                        background: "#fff",
-                        border: "1px solid rgba(255, 99, 183, 0.25)",
-                        color: "var(--plum)",
-                        fontSize: 13,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        boxShadow: "0 2px 8px rgba(64,32,68,0.04)",
-                        transition: "all 0.2s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "#FF3F9D";
-                        e.currentTarget.style.transform = "translateY(-2px)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "rgba(255, 99, 183, 0.25)";
-                        e.currentTarget.style.transform = "translateY(0)";
-                      }}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-
-            {/* ── RECOMMENDED BOUTIQUE GIFTS GRID (When Wishlist is Empty) ── */}
-            {recommendations.length > 0 && (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", color: "#FF3F9D", letterSpacing: "1px" }}>
-                      ⭐ {t("wishlist.trendingHeader", "Top Picks For You")}
-                    </span>
-                    <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 900, color: "var(--plum)", margin: "4px 0 0" }}>
-                      {t("wishlist.trendingTitle", "Trending Magical Gifts to Add")}
-                    </h2>
-                  </div>
-                  <Link
-                    to="/shop"
-                    style={{
-                      textDecoration: "none",
-                      color: "#FF3F9D",
-                      fontWeight: 800,
-                      fontSize: 14,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    {t("shop.viewAll", "View Entire Shop")} <ChevronRight size={16} />
-                  </Link>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-                    gap: 22,
-                  }}
-                >
-                  {recommendations.slice(0, 4).map((prod) => {
-                    const isWished = isInWishlist(prod._id);
-                    const originalPrice = Math.round(Number(prod.price) * 1.25);
-                    return (
-                      <div
-                        key={prod._id}
-                        style={{
-                          background: "#fff",
-                          borderRadius: "24px",
-                          overflow: "hidden",
-                          border: "1.5px solid rgba(255, 99, 183, 0.2)",
-                          boxShadow: "0 10px 30px rgba(64, 32, 68, 0.05)",
-                          display: "flex",
-                          flexDirection: "column",
-                          position: "relative",
-                          transition: "transform 0.25s, box-shadow 0.25s",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = "translateY(-6px)";
-                          e.currentTarget.style.boxShadow = "0 16px 40px rgba(255, 63, 157, 0.15)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = "translateY(0)";
-                          e.currentTarget.style.boxShadow = "0 10px 30px rgba(64, 32, 68, 0.05)";
-                        }}
-                      >
-                        {/* Wishlist toggle button */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            toggleWishlist(prod);
-                          }}
-                          style={{
-                            position: "absolute",
-                            top: 12,
-                            right: 12,
-                            width: 38,
-                            height: 38,
-                            borderRadius: "50%",
-                            background: "rgba(255,255,255,0.92)",
-                            border: "none",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            cursor: "pointer",
-                            zIndex: 10,
-                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                          }}
-                          title={isWished ? "Remove from wishlist" : "Add to wishlist"}
-                        >
-                          <Heart
-                            size={18}
-                            color="#FF3F9D"
-                            fill={isWished ? "#FF3F9D" : "none"}
-                          />
-                        </button>
-
-                        {/* Image */}
-                        <Link to={`/product/${prod._id}`} style={{ textDecoration: "none", display: "block" }}>
-                          <div style={{ height: 200, background: "#FFF0F5", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                            {prod.images?.[0] ? (
-                              <img
-                                src={prod.images[0]}
-                                alt={prod.name}
-                                style={{ width: "100%", height: "100%", objectFit: "contain", padding: 12 }}
-                              />
-                            ) : (
-                              <span style={{ fontSize: 48 }}>🎁</span>
-                            )}
-                          </div>
-                        </Link>
-
-                        {/* Content */}
-                        <div style={{ padding: "16px 18px", flex: 1, display: "flex", flexDirection: "column" }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#FF3F9D", marginBottom: 4 }}>
-                            {prod.category || "Wonder"}
-                          </span>
-                          <Link to={`/product/${prod._id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                            <h3
-                              style={{
-                                fontFamily: "var(--font-display)",
-                                fontSize: 16,
-                                fontWeight: 800,
-                                color: "var(--plum)",
-                                margin: "0 0 8px",
-                                lineHeight: 1.3,
-                                display: "-webkit-box",
-                                WebkitLineClamp: 1,
-                                WebkitBoxOrient: "vertical",
-                                overflow: "hidden",
-                              }}
-                            >
-                              {prod.name}
-                            </h3>
-                          </Link>
-
-                          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: "auto", marginBottom: 14 }}>
-                            <span style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 900, color: "#FF3F9D" }}>
-                              ₹{Number(prod.price).toLocaleString("en-IN")}
-                            </span>
-                            <span style={{ fontSize: 12, color: "var(--text-light)", textDecoration: "line-through" }}>
-                              ₹{originalPrice.toLocaleString("en-IN")}
-                            </span>
-                            <span style={{ fontSize: 10, fontWeight: 900, color: "#059669", background: "rgba(114,230,176,0.25)", padding: "2px 6px", borderRadius: "var(--radius-pill)" }}>
-                              20% OFF
-                            </span>
-                          </div>
-
-                          {/* Dual Action Buttons */}
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDirectBuy(prod)}
-                              style={{
-                                flex: 1,
-                                padding: "10px",
-                                borderRadius: "var(--radius-pill)",
-                                background: "linear-gradient(135deg, #8057E8 0%, #A78BFA 100%)",
-                                color: "#fff",
-                                border: "none",
-                                fontWeight: 800,
-                                fontSize: 12,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 4,
-                                boxShadow: "0 4px 12px rgba(128, 87, 232, 0.25)",
-                              }}
-                            >
-                              <Zap size={14} fill="#fff" /> Buy Now
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => addToCart(prod)}
-                              style={{
-                                flex: 1,
-                                padding: "10px",
-                                borderRadius: "var(--radius-pill)",
-                                background: "linear-gradient(135deg, #FF3F9D 0%, #C9184A 100%)",
-                                color: "#fff",
-                                border: "none",
-                                fontWeight: 800,
-                                fontSize: 12,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 4,
-                                boxShadow: "0 4px 12px rgba(255, 63, 157, 0.25)",
-                              }}
-                            >
-                              <ShoppingBag size={14} /> Add to Cart
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          /* ════════════════════════════════════════════════════════════════
-              POPULATED WISHLIST STATE WITH COMPREHENSIVE TOOLS & CONTROLS
-          ════════════════════════════════════════════════════════════════ */
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            
-            {/* ── HEADER BANNER ── */}
-            <motion.div
-              initial={{ opacity: 0, y: -15 }}
-              animate={{ opacity: 1, y: 0 }}
+            {/* Create Wishlist CTA Button */}
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => {
+                if (!isLoggedIn) {
+                  toast.error("Please log in to create a collaborative wishlist! 💖");
+                  navigate("/login");
+                  return;
+                }
+                setCreateModalOpen(true);
+              }}
               style={{
-                display: "flex",
+                padding: "14px 28px",
+                borderRadius: "var(--radius-pill)",
+                background: "linear-gradient(135deg, #FF3F9D, #FF63B7)",
+                color: "#fff",
+                border: "none",
+                fontFamily: "var(--font-display)",
+                fontWeight: 900,
+                fontSize: 15,
+                cursor: "pointer",
+                display: "inline-flex",
                 alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: 16,
-                padding: "24px 28px",
-                background: "linear-gradient(135deg, #FFF5F9 0%, #FAF5FF 100%)",
-                borderRadius: "28px",
-                border: "1.5px solid rgba(255, 99, 183, 0.3)",
-                boxShadow: "0 10px 30px rgba(64, 32, 68, 0.04)",
+                gap: 8,
+                boxShadow: "0 8px 24px rgba(255, 63, 157, 0.4)",
               }}
             >
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: "14px",
-                      background: "rgba(255, 63, 157, 0.15)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Heart size={24} color="#FF3F9D" fill="#FF3F9D" />
-                  </div>
-                  <div>
-                    <h1
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "clamp(22px, 3vw, 28px)",
-                        color: "var(--plum)",
-                        fontWeight: 900,
-                        margin: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                      }}
-                    >
-                      {t("wishlist.title", "My Favorites")}
-                      <span
-                        style={{
-                          background: "#FF3F9D",
-                          color: "#fff",
-                          fontSize: 13,
-                          fontWeight: 800,
-                          padding: "3px 12px",
-                          borderRadius: "var(--radius-pill)",
-                        }}
-                      >
-                        {wishlistItems.length}
-                      </span>
-                    </h1>
-                    <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
-                      Estimated Total:{" "}
-                      <strong style={{ color: "#FF3F9D" }}>
-                        ₹{totalWishlistValue.toLocaleString("en-IN")}
-                      </strong>{" "}
-                      · <span style={{ color: "#059669", fontWeight: 700 }}>🎉 Eligible for Free Boutique Delivery</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <Plus size={18} strokeWidth={3} />
+              <span>{t("wishlist.createNew", "Create New Wishlist")}</span>
+            </motion.button>
+          </div>
 
-              {/* Express Bulk Actions */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                {/* Buy All with Razorpay / UPI */}
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleBuyAllWishlist}
-                  style={{
-                    padding: "12px 24px",
-                    borderRadius: "var(--radius-pill)",
-                    background: "linear-gradient(135deg, #8057E8 0%, #A78BFA 100%)",
-                    color: "#fff",
-                    border: "none",
-                    fontWeight: 900,
-                    fontSize: 14,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    boxShadow: "0 6px 20px rgba(128, 87, 232, 0.35)",
-                  }}
-                >
-                  <Zap size={16} fill="#fff" />
-                  <span>
-                    Buy All ({wishlistItems.length}) with Razorpay · ₹{totalWishlistValue.toLocaleString("en-IN")}
-                  </span>
-                </motion.button>
+          {/* Quick Metrics */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 24,
+              marginTop: 26,
+              paddingTop: 20,
+              borderTop: "1px solid rgba(255,255,255,0.12)",
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontSize: 22, fontWeight: 900, color: "#FF63B7" }}>{ownedWishlists.length}</span>
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>My Collections</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontSize: 22, fontWeight: 900, color: "#A78BFA" }}>{sharedWishlists.length}</span>
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>Shared With Me</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontSize: 22, fontWeight: 900, color: "#72E6B0" }}>{totalItemsCount}</span>
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>Total Curated Gifts</span>
+            </div>
+          </div>
+        </motion.div>
 
-                {/* Move All to Cart */}
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleMoveAllToCart}
-                  style={{
-                    padding: "12px 20px",
-                    borderRadius: "var(--radius-pill)",
-                    background: "#fff",
-                    color: "var(--plum)",
-                    border: "1.5px solid rgba(255, 99, 183, 0.35)",
-                    fontWeight: 800,
-                    fontSize: 14,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    boxShadow: "0 4px 12px rgba(64,32,68,0.04)",
-                  }}
-                >
-                  <ShoppingBag size={16} color="#FF3F9D" />
-                  <span>{t("wishlist.moveAllToCart", "Move All to Cart")}</span>
-                </motion.button>
-
-                {/* Share Wishlist */}
-                <button
-                  type="button"
-                  onClick={() => setShareModalOpen(true)}
-                  style={{
-                    padding: "11px 16px",
-                    borderRadius: "var(--radius-pill)",
-                    background: "#fff",
-                    color: "var(--plum)",
-                    border: "1.5px solid #e5e7eb",
-                    fontWeight: 800,
-                    fontSize: 13,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                  title="Share your wishlist"
-                >
-                  <Share2 size={15} color="#8057E8" />
-                  <span>Share</span>
-                </button>
-
-                {/* Clear Wishlist */}
-                <button
-                  type="button"
-                  onClick={() => setConfirmClearOpen(true)}
-                  style={{
-                    padding: "11px 14px",
-                    borderRadius: "var(--radius-pill)",
-                    background: "rgba(239, 68, 68, 0.08)",
-                    color: "#dc2626",
-                    border: "1px solid rgba(239, 68, 68, 0.2)",
-                    fontWeight: 800,
-                    fontSize: 13,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                  title="Clear all favorites"
-                >
-                  <Trash2 size={15} />
-                  <span>Clear</span>
-                </button>
-              </div>
-            </motion.div>
-
-            {/* ── TOOLBAR: SEARCH, CATEGORY FILTER & SORT ── */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-                padding: "16px 20px",
-                background: "#fff",
-                borderRadius: "20px",
-                border: "1px solid rgba(255, 99, 183, 0.2)",
-                boxShadow: "0 4px 16px rgba(64,32,68,0.03)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-                
-                {/* Search Bar */}
+        {/* ── PENDING INVITATIONS NOTIFICATION BANNER (If Any) ── */}
+        {pendingInvitations.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              background: "linear-gradient(135deg, #FFF0F6 0%, #FAF5FF 100%)",
+              border: "2px solid #FF3F9D",
+              borderRadius: "24px",
+              padding: "18px 24px",
+              marginBottom: 28,
+              boxShadow: "0 10px 30px rgba(255, 63, 157, 0.12)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div
                   style={{
-                    position: "relative",
-                    flex: "1 1 240px",
-                    maxWidth: 360,
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    background: "rgba(255, 63, 157, 0.15)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#FF3F9D",
                   }}
                 >
-                  <Search
-                    size={16}
-                    color="var(--text-muted)"
-                    style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}
-                  />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t("wishlist.searchPlaceholder", "Search saved items…")}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px 10px 38px",
-                      borderRadius: "var(--radius-pill)",
-                      border: "1.5px solid #e5e7eb",
-                      fontSize: 13,
-                      outline: "none",
-                      color: "var(--plum)",
-                      background: "#fafafa",
-                    }}
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      style={{
-                        position: "absolute",
-                        right: 12,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none",
-                        border: "none",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontWeight: 800,
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <Mail size={22} />
                 </div>
-
-                {/* Right controls: In-Stock toggle and Sort Dropdown */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  {/* In Stock Only Checkbox */}
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: "var(--plum)",
-                      cursor: "pointer",
-                      userSelect: "none",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={inStockOnly}
-                      onChange={(e) => setInStockOnly(e.target.checked)}
-                      style={{ accentColor: "#FF3F9D", cursor: "pointer", width: 16, height: 16 }}
-                    />
-                    <span>{t("shop.inStockOnly", "In Stock Only")}</span>
-                  </label>
-
-                  {/* Sort By Dropdown */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <ArrowUpDown size={14} color="var(--text-muted)" />
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                      style={{
-                        padding: "8px 14px",
-                        borderRadius: "var(--radius-pill)",
-                        border: "1.5px solid #e5e7eb",
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: "var(--plum)",
-                        background: "#fff",
-                        cursor: "pointer",
-                        outline: "none",
-                      }}
-                    >
-                      <option value="recent">🕒 Recently Added</option>
-                      <option value="price_asc">📈 Price: Low to High</option>
-                      <option value="price_desc">📉 Price: High to Low</option>
-                      <option value="name">🔤 Product Name (A-Z)</option>
-                    </select>
-                  </div>
+                <div>
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 900, color: "var(--plum)", margin: "0 0 2px" }}>
+                    You have {pendingInvitations.length} pending wishlist invitation{pendingInvitations.length > 1 ? "s" : ""}! 💌
+                  </h3>
+                  <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
+                    Accept to collaborate, view notes, and coordinate gift purchases together.
+                  </p>
                 </div>
               </div>
 
-              {/* Category Pills */}
-              <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat.id)}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                {pendingInvitations.map((inv) => (
+                  <div
+                    key={inv._id}
                     style={{
-                      padding: "6px 14px",
+                      background: "#fff",
                       borderRadius: "var(--radius-pill)",
-                      border: "1.5px solid",
-                      borderColor: selectedCategory === cat.id ? "#FF3F9D" : "#e5e7eb",
-                      background: selectedCategory === cat.id ? "linear-gradient(135deg, #FF3F9D, #8057E8)" : "#fff",
-                      color: selectedCategory === cat.id ? "#fff" : "var(--plum)",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
+                      padding: "6px 14px",
+                      border: "1px solid rgba(255, 99, 183, 0.3)",
                       display: "flex",
                       alignItems: "center",
-                      gap: 4,
-                      transition: "all 0.15s",
+                      gap: 8,
+                      fontSize: 13,
                     }}
                   >
-                    <span>{cat.icon}</span>
-                    <span>{cat.label}</span>
-                  </button>
+                    <span style={{ fontWeight: 800, color: "var(--plum)" }}>
+                      {inv.inviterName} → "{inv.wishlistName}"
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => acceptInvitation(inv._id)}
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: "var(--radius-pill)",
+                        background: "#FF3F9D",
+                        color: "#fff",
+                        border: "none",
+                        fontWeight: 800,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => rejectInvitation(inv._id)}
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: "var(--radius-pill)",
+                        background: "none",
+                        color: "var(--text-muted)",
+                        border: "none",
+                        fontWeight: 700,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Decline
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
-
-            {/* ── WISHLIST ITEMS GRID ── */}
-            {filteredWishlist.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "50px 20px",
-                  background: "#fff",
-                  borderRadius: "24px",
-                  border: "1px dashed rgba(255, 99, 183, 0.4)",
-                  color: "var(--text-muted)",
-                }}
-              >
-                <Filter size={32} color="#FF3F9D" style={{ margin: "0 auto 10px", opacity: 0.6 }} />
-                <h3 style={{ fontFamily: "var(--font-display)", color: "var(--plum)", fontSize: 18, margin: "0 0 6px" }}>
-                  No matching favorites found
-                </h3>
-                <p style={{ fontSize: 13, margin: 0 }}>
-                  Try resetting your category or search filter to see your saved items.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedCategory("all");
-                    setInStockOnly(false);
-                  }}
-                  style={{
-                    marginTop: 14,
-                    padding: "8px 18px",
-                    borderRadius: "var(--radius-pill)",
-                    background: "transparent",
-                    border: "1.5px solid #FF3F9D",
-                    color: "#FF3F9D",
-                    fontWeight: 800,
-                    fontSize: 12,
-                    cursor: "pointer",
-                  }}
-                >
-                  Reset Filters
-                </button>
-              </div>
-            ) : (
-              <motion.div
-                variants={containerVars}
-                initial="hidden"
-                animate="show"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                  gap: "24px",
-                }}
-              >
-                <AnimatePresence mode="popLayout">
-                  {filteredWishlist.map((product) => {
-                    const originalPrice = Math.round(Number(product.price) * 1.25);
-                    const isOutOfStock = (product.quantity ?? 1) <= 0;
-                    const isLowStock = (product.quantity ?? 1) > 0 && (product.quantity ?? 1) <= 2;
-
-                    return (
-                      <motion.div
-                        variants={itemVars}
-                        key={product._id}
-                        layout
-                        style={{
-                          background: "#FFFFFF",
-                          borderRadius: "24px",
-                          overflow: "hidden",
-                          border: "1.5px solid rgba(255, 99, 183, 0.25)",
-                          boxShadow: "0 10px 30px rgba(64, 32, 68, 0.05)",
-                          display: "flex",
-                          flexDirection: "column",
-                          position: "relative",
-                          transition: "all 0.25s",
-                        }}
-                        whileHover={{ y: -6, boxShadow: "0 16px 40px rgba(255, 63, 157, 0.16)" }}
-                      >
-                        {/* Remove overlay button */}
-                        <button
-                          type="button"
-                          onClick={() => removeFromWishlist(product._id)}
-                          style={{
-                            position: "absolute",
-                            top: "14px",
-                            right: "14px",
-                            zIndex: 10,
-                            background: "rgba(255, 255, 255, 0.92)",
-                            border: "none",
-                            borderRadius: "50%",
-                            width: "36px",
-                            height: "36px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            cursor: "pointer",
-                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                            color: "#e63946",
-                            transition: "background 0.2s",
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#ffebee")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255, 255, 255, 0.92)")}
-                          title={t("wishlist.remove", "Remove from favorites")}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-
-                        {/* Stock Badge Overlay */}
-                        <div style={{ position: "absolute", top: 14, left: 14, zIndex: 10 }}>
-                          {isOutOfStock ? (
-                            <span
-                              style={{
-                                background: "#dc2626",
-                                color: "#fff",
-                                fontSize: 10,
-                                fontWeight: 900,
-                                padding: "4px 8px",
-                                borderRadius: "var(--radius-pill)",
-                                textTransform: "uppercase",
-                              }}
-                            >
-                              Sold Out
-                            </span>
-                          ) : isLowStock ? (
-                            <span
-                              style={{
-                                background: "#ea580c",
-                                color: "#fff",
-                                fontSize: 10,
-                                fontWeight: 900,
-                                padding: "4px 8px",
-                                borderRadius: "var(--radius-pill)",
-                              }}
-                            >
-                              Only {product.quantity} Left!
-                            </span>
-                          ) : (
-                            <span
-                              style={{
-                                background: "rgba(114, 230, 176, 0.95)",
-                                color: "#064e3b",
-                                fontSize: 10,
-                                fontWeight: 900,
-                                padding: "4px 8px",
-                                borderRadius: "var(--radius-pill)",
-                              }}
-                            >
-                              In Stock
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Image */}
-                        <Link
-                          to={`/product/${product._id}`}
-                          style={{ textDecoration: "none", color: "inherit", display: "block" }}
-                        >
-                          <div
-                            style={{
-                              height: "220px",
-                              overflow: "hidden",
-                              background: "linear-gradient(135deg, #FFF0F6 0%, #FAF5FF 100%)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            {product.images?.[0] ? (
-                              <img
-                                src={product.images[0]}
-                                alt={product.name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "contain",
-                                  padding: "16px",
-                                  transition: "transform 0.3s ease",
-                                }}
-                                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.06)")}
-                                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-                              />
-                            ) : (
-                              <span style={{ fontSize: "56px" }}>🎁</span>
-                            )}
-                          </div>
-                        </Link>
-
-                        {/* Content */}
-                        <div style={{ padding: "18px 20px 14px", flex: 1, display: "flex", flexDirection: "column" }}>
-                          <span
-                            style={{
-                              fontSize: "11px",
-                              color: "#FF3F9D",
-                              fontWeight: 900,
-                              textTransform: "uppercase",
-                              letterSpacing: "0.8px",
-                              marginBottom: "4px",
-                            }}
-                          >
-                            {product.category || "Boutique"}
-                          </span>
-
-                          <Link
-                            to={`/product/${product._id}`}
-                            style={{ textDecoration: "none", color: "inherit" }}
-                          >
-                            <h3
-                              style={{
-                                fontFamily: "var(--font-display)",
-                                fontSize: "16px",
-                                fontWeight: 800,
-                                color: "var(--plum)",
-                                margin: "0 0 10px",
-                                lineHeight: 1.35,
-                                display: "-webkit-box",
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: "vertical",
-                                overflow: "hidden",
-                              }}
-                            >
-                              {product.name}
-                            </h3>
-                          </Link>
-
-                          {/* Pricing with Discount */}
-                          <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "auto", marginBottom: "16px" }}>
-                            <span
-                              style={{
-                                fontFamily: "var(--font-display)",
-                                fontSize: "22px",
-                                fontWeight: 900,
-                                color: "#FF3F9D",
-                              }}
-                            >
-                              ₹{(+product.price).toLocaleString("en-IN")}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: "13px",
-                                color: "var(--text-light)",
-                                textDecoration: "line-through",
-                              }}
-                            >
-                              ₹{originalPrice.toLocaleString("en-IN")}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: "10px",
-                                fontWeight: 900,
-                                color: "#059669",
-                                background: "rgba(114,230,176,0.25)",
-                                padding: "2px 6px",
-                                borderRadius: "var(--radius-pill)",
-                              }}
-                            >
-                              20% OFF
-                            </span>
-                          </div>
-
-                          {/* Action Buttons: ⚡ Direct Buy Now & 🛒 Move to Cart */}
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            {/* Direct Razorpay Instant Buy (Temu style) */}
-                            <motion.button
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              disabled={isOutOfStock}
-                              onClick={() => handleOpenDirectBuy(product)}
-                              style={{
-                                flex: 1,
-                                padding: "11px 8px",
-                                background: isOutOfStock
-                                  ? "#d1d5db"
-                                  : "linear-gradient(135deg, #8057E8 0%, #A78BFA 100%)",
-                                color: "#ffffff",
-                                border: "none",
-                                borderRadius: "var(--radius-pill)",
-                                fontWeight: 900,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "6px",
-                                cursor: isOutOfStock ? "not-allowed" : "pointer",
-                                fontSize: "12px",
-                                boxShadow: isOutOfStock ? "none" : "0 4px 14px rgba(128, 87, 232, 0.3)",
-                              }}
-                            >
-                              <Zap size={14} fill="#fff" /> Buy Now
-                            </motion.button>
-
-                            {/* Move to Cart */}
-                            <motion.button
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              disabled={isOutOfStock}
-                              onClick={() => handleMoveSingleToCart(product)}
-                              style={{
-                                flex: 1,
-                                padding: "11px 8px",
-                                background: isOutOfStock
-                                  ? "#d1d5db"
-                                  : "linear-gradient(135deg, #FF3F9D 0%, #C9184A 100%)",
-                                color: "#ffffff",
-                                border: "none",
-                                borderRadius: "var(--radius-pill)",
-                                fontWeight: 900,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "6px",
-                                cursor: isOutOfStock ? "not-allowed" : "pointer",
-                                fontSize: "12px",
-                                boxShadow: isOutOfStock ? "none" : "0 4px 14px rgba(255, 63, 157, 0.3)",
-                              }}
-                            >
-                              <ShoppingBag size={14} /> Move to Cart
-                            </motion.button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </motion.div>
-            )}
-
-            {/* ── RECOMMENDED COMPANION PRODUCTS SECTION (When items are in wishlist) ── */}
-            {recommendations.length > 0 && (
-              <div style={{ marginTop: 40, borderTop: "1.5px solid rgba(255, 99, 183, 0.2)", paddingTop: 30 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", color: "#FF3F9D", letterSpacing: "1px" }}>
-                      ✨ {t("wishlist.recommendedMore", "You May Also Like")}
-                    </span>
-                    <h3 style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 900, color: "var(--plum)", margin: "4px 0 0" }}>
-                      Discover More Boutique Toys & Gifts
-                    </h3>
-                  </div>
-                  <Link
-                    to="/shop"
-                    style={{
-                      textDecoration: "none",
-                      color: "#FF3F9D",
-                      fontWeight: 800,
-                      fontSize: 14,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    {t("shop.viewAll", "View Shop")} <ChevronRight size={16} />
-                  </Link>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-                    gap: 20,
-                  }}
-                >
-                  {recommendations.slice(0, 4).map((prod) => {
-                    const isWished = isInWishlist(prod._id);
-                    return (
-                      <div
-                        key={prod._id}
-                        style={{
-                          background: "#fff",
-                          borderRadius: "20px",
-                          overflow: "hidden",
-                          border: "1.5px solid rgba(255, 99, 183, 0.2)",
-                          boxShadow: "0 6px 20px rgba(64,32,68,0.04)",
-                          display: "flex",
-                          flexDirection: "column",
-                        }}
-                      >
-                        <div style={{ height: 160, background: "#FFF0F5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          {prod.images?.[0] ? (
-                            <img
-                              src={prod.images[0]}
-                              alt={prod.name}
-                              style={{ width: "100%", height: "100%", objectFit: "contain", padding: 10 }}
-                            />
-                          ) : (
-                            <span style={{ fontSize: 40 }}>🎁</span>
-                          )}
-                        </div>
-
-                        <div style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: "#FF3F9D", textTransform: "uppercase" }}>
-                            {prod.category}
-                          </span>
-                          <h4 style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 800, color: "var(--plum)", margin: "4px 0 10px" }}>
-                            {prod.name}
-                          </h4>
-                          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: "auto", marginBottom: 12 }}>
-                            <span style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 900, color: "#FF3F9D" }}>
-                              ₹{Number(prod.price).toLocaleString("en-IN")}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => toggleWishlist(prod)}
-                              style={{
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                color: isWished ? "#FF3F9D" : "var(--text-muted)",
-                                fontSize: 12,
-                                fontWeight: 700,
-                              }}
-                            >
-                              <Heart size={16} fill={isWished ? "#FF3F9D" : "none"} color="#FF3F9D" />
-                              <span>{isWished ? "Saved" : "Save"}</span>
-                            </button>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => addToCart(prod)}
-                            style={{
-                              width: "100%",
-                              padding: "9px",
-                              borderRadius: "var(--radius-pill)",
-                              background: "linear-gradient(135deg, #FF3F9D, #8057E8)",
-                              color: "#fff",
-                              border: "none",
-                              fontSize: 12,
-                              fontWeight: 800,
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 6,
-                            }}
-                          >
-                            <ShoppingBag size={14} /> Add to Cart
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          </motion.div>
         )}
-      </div>
 
-      {/* ════════════════════════════════════════════════════════════════
-          SHARE WISHLIST MODAL
-      ════════════════════════════════════════════════════════════════ */}
-      <AnimatePresence>
-        {shareModalOpen && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(38, 16, 43, 0.7)",
-              backdropFilter: "blur(12px)",
-              zIndex: 999999,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 16,
-            }}
-            onClick={() => setShareModalOpen(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.94, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 15 }}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                background: "#FFFFFF",
-                borderRadius: "28px",
-                padding: "28px 24px",
-                maxWidth: "480px",
-                width: "100%",
-                boxShadow: "0 24px 60px rgba(45, 14, 52, 0.3)",
-                border: "2px solid rgba(255, 99, 183, 0.3)",
-                textAlign: "center",
-              }}
-            >
-              <div
-                style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: "50%",
-                  background: "rgba(128, 87, 232, 0.12)",
-                  color: "#8057E8",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 12px",
-                }}
-              >
-                <Share2 size={26} />
-              </div>
-
-              <h3 style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 900, color: "var(--plum)", margin: "0 0 6px" }}>
-                Share Your Wishlist
-              </h3>
-              <p style={{ color: "var(--text-muted)", fontSize: 13, margin: "0 0 20px", lineHeight: 1.5 }}>
-                Send your curated favorites to family and friends so they know exactly what brings you joy!
-              </p>
-
-              {/* Share link input with copy button */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  background: "#FAF5FF",
-                  borderRadius: "16px",
-                  padding: "6px 8px 6px 14px",
-                  border: "1.5px solid rgba(128, 87, 232, 0.3)",
-                  marginBottom: 16,
-                }}
-              >
-                <input
-                  type="text"
-                  readOnly
-                  value={`${window.location.origin}/wishlist?shared=true`}
-                  style={{
-                    flex: 1,
-                    background: "transparent",
-                    border: "none",
-                    outline: "none",
-                    fontSize: 13,
-                    color: "var(--plum)",
-                    fontWeight: 600,
-                  }}
-                />
+        {/* ── TABS NAVIGATION & TOOLBAR ── */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 16,
+            marginBottom: 24,
+            borderBottom: "1.5px solid rgba(255, 99, 183, 0.2)",
+            paddingBottom: 14,
+          }}
+        >
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
+            {[
+              { id: "owned", label: "My Collections", count: ownedWishlists.length, icon: "📂" },
+              { id: "shared", label: "Shared With Me", count: sharedWishlists.length, icon: "👥" },
+              { id: "public", label: "Public Discovery", icon: "🌐" },
+              { id: "archived", label: "Archived", count: archivedWishlists.length, icon: "📦" },
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
                 <button
+                  key={tab.id}
                   type="button"
-                  onClick={handleCopyShareLink}
+                  onClick={() => handleTabChange(tab.id)}
                   style={{
-                    padding: "8px 16px",
-                    borderRadius: "12px",
-                    background: copiedLink ? "#059669" : "linear-gradient(135deg, #8057E8, #FF3F9D)",
-                    color: "#fff",
-                    border: "none",
-                    fontSize: 12,
+                    padding: "9px 18px",
+                    borderRadius: "var(--radius-pill)",
+                    background: isActive ? "linear-gradient(135deg, #FF3F9D, #8057E8)" : "#fff",
+                    color: isActive ? "#fff" : "var(--plum)",
+                    border: "1.5px solid",
+                    borderColor: isActive ? "transparent" : "rgba(255, 99, 183, 0.25)",
+                    fontFamily: "var(--font-display)",
                     fontWeight: 800,
+                    fontSize: 14,
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
+                    whiteSpace: "nowrap",
+                    boxShadow: isActive ? "0 4px 14px rgba(255, 63, 157, 0.25)" : "none",
+                    transition: "all 0.2s",
                   }}
                 >
-                  {copiedLink ? <Check size={14} /> : <Copy size={14} />}
-                  <span>{copiedLink ? "Copied!" : "Copy"}</span>
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  {tab.count !== undefined && (
+                    <span
+                      style={{
+                        background: isActive ? "rgba(255,255,255,0.25)" : "rgba(255, 63, 157, 0.12)",
+                        color: isActive ? "#fff" : "#FF3F9D",
+                        padding: "1px 7px",
+                        borderRadius: "10px",
+                        fontSize: 11,
+                        fontWeight: 900,
+                      }}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
                 </button>
-              </div>
+              );
+            })}
+          </div>
 
-              {/* Share on WhatsApp */}
-              <button
-                type="button"
-                onClick={handleShareWhatsApp}
+          {/* Search & Privacy filter */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ position: "relative", minWidth: 220 }}>
+              <Search size={15} color="var(--text-muted)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
+              <input
+                type="text"
+                placeholder="Search collections…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "12px",
+                  padding: "8px 12px 8px 34px",
                   borderRadius: "var(--radius-pill)",
-                  background: "#25D366",
+                  border: "1.5px solid #e5e7eb",
+                  fontSize: 13,
+                  outline: "none",
+                  background: "#fff",
+                  color: "var(--plum)",
+                }}
+              />
+            </div>
+
+            {activeTab !== "public" && (
+              <select
+                value={privacyFilter}
+                onChange={(e) => setPrivacyFilter(e.target.value)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: "var(--radius-pill)",
+                  border: "1.5px solid #e5e7eb",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "var(--plum)",
+                  background: "#fff",
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="all">All Visibility</option>
+                <option value="private">🔒 Private Only</option>
+                <option value="shared">👥 Shared Only</option>
+                <option value="public">🌐 Public Only</option>
+              </select>
+            )}
+          </div>
+        </div>
+
+        {/* ════════════════════════════════════════════════════════════════
+            COLLECTIONS GRID (Instagram Saved Collections Aesthetic)
+        ════════════════════════════════════════════════════════════════ */}
+        {loadingWishlists || (activeTab === "public" && loadingPublic) ? (
+          <div style={{ textAlign: "center", padding: "60px 20px" }}>
+            <Sparkles size={36} color="#FF3F9D" className="animate-spin" style={{ margin: "0 auto 12px" }} />
+            <p style={{ color: "var(--text-muted)", fontSize: 14, fontWeight: 700 }}>
+              Loading magical collections…
+            </p>
+          </div>
+        ) : currentList.length === 0 ? (
+          /* Empty State */
+          <div
+            style={{
+              textAlign: "center",
+              padding: "70px 24px",
+              background: "#fff",
+              borderRadius: "28px",
+              border: "2px dashed rgba(255, 99, 183, 0.35)",
+              maxWidth: 620,
+              margin: "30px auto",
+            }}
+          >
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                background: "rgba(255, 63, 157, 0.12)",
+                color: "#FF3F9D",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 16px",
+              }}
+            >
+              <FolderHeart size={32} />
+            </div>
+
+            <h3 style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 900, color: "var(--plum)", margin: "0 0 8px" }}>
+              {activeTab === "owned"
+                ? "No Collections Yet"
+                : activeTab === "shared"
+                ? "No Shared Collections Yet"
+                : activeTab === "archived"
+                ? "No Archived Collections"
+                : "No Public Collections Discovered"}
+            </h3>
+
+            <p style={{ color: "var(--text-muted)", fontSize: 14, margin: "0 0 24px", lineHeight: 1.6 }}>
+              {activeTab === "owned"
+                ? "Create custom collections for birthdays, family holidays, or surprise registries and invite loved ones to curate together!"
+                : activeTab === "shared"
+                ? "When friends or family invite you to their wishlists, their collections will show up right here."
+                : activeTab === "archived"
+                ? "Wishlists you archive will safely rest here and can be restored anytime."
+                : "Be the first to share your boutique toy registry with the community!"}
+            </p>
+
+            {activeTab === "owned" && (
+              <button
+                type="button"
+                onClick={() => setCreateModalOpen(true)}
+                style={{
+                  padding: "12px 28px",
+                  borderRadius: "var(--radius-pill)",
+                  background: "linear-gradient(135deg, #FF3F9D, #8057E8)",
                   color: "#fff",
                   border: "none",
                   fontWeight: 900,
                   fontSize: 14,
                   cursor: "pointer",
-                  display: "flex",
+                  display: "inline-flex",
                   alignItems: "center",
-                  justifyContent: "center",
                   gap: 8,
-                  boxShadow: "0 4px 16px rgba(37, 211, 102, 0.3)",
-                  marginBottom: 12,
+                  boxShadow: "0 6px 20px rgba(255, 63, 157, 0.3)",
                 }}
               >
-                <span>💬 Share via WhatsApp</span>
+                <Plus size={16} strokeWidth={3} /> Create Your First Wishlist
               </button>
+            )}
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))",
+              gap: 24,
+            }}
+          >
+            {currentList.map((w) => {
+              const previewItems = w.items || [];
+              const previewImages = previewItems
+                .map((it) => it.productId?.images?.[0] || it.images?.[0])
+                .filter(Boolean);
 
-              <button
-                type="button"
-                onClick={() => setShareModalOpen(false)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--text-muted)",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  padding: "6px 12px",
-                }}
-              >
-                Close
-              </button>
-            </motion.div>
+              const isOwner = w.ownerId?._id === currentUser?.id || w.ownerId === currentUser?.id;
+              const isShared = w.visibility === "shared";
+              const isPublic = w.visibility === "public";
+              const membersCount = w.members?.length || (isShared ? 2 : 1);
+
+              return (
+                <motion.div
+                  key={w._id}
+                  whileHover={{ y: -6, boxShadow: "0 18px 45px rgba(255, 63, 157, 0.16)" }}
+                  transition={{ duration: 0.2 }}
+                  style={{
+                    background: "#FFFFFF",
+                    borderRadius: "24px",
+                    overflow: "hidden",
+                    border: "1.5px solid rgba(255, 99, 183, 0.25)",
+                    boxShadow: "0 10px 30px rgba(64, 32, 68, 0.05)",
+                    display: "flex",
+                    flexDirection: "column",
+                    cursor: "pointer",
+                    position: "relative",
+                  }}
+                  onClick={() => {
+                    if (activeTab === "public") {
+                      navigate(`/wishlist/shared/${w.shareCode}`);
+                    } else {
+                      navigate(`/wishlist/${w._id}`);
+                    }
+                  }}
+                >
+                  {/* ── 4-IMAGE INSTAGRAM STYLE PREVIEW COLLAGE ── */}
+                  <div
+                    style={{
+                      height: 190,
+                      background: "linear-gradient(135deg, #FFF0F6 0%, #FAF5FF 100%)",
+                      display: "grid",
+                      gridTemplateColumns: previewImages.length >= 2 ? "1fr 1fr" : "1fr",
+                      gridTemplateRows: previewImages.length >= 3 ? "1fr 1fr" : "1fr",
+                      gap: 2,
+                      padding: 2,
+                      position: "relative",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {previewImages.length === 0 ? (
+                      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48 }}>
+                        {w.coverImage ? "🎀" : "🎁"}
+                      </div>
+                    ) : (
+                      previewImages.slice(0, 4).map((img, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            overflow: "hidden",
+                            background: "#fff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <img
+                            src={img}
+                            alt=""
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "contain",
+                              padding: 6,
+                            }}
+                          />
+                        </div>
+                      ))
+                    )}
+
+                    {/* Visibility Pill Overlay */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 10,
+                        left: 10,
+                        background: "rgba(255, 255, 255, 0.92)",
+                        backdropFilter: "blur(6px)",
+                        padding: "3px 10px",
+                        borderRadius: "var(--radius-pill)",
+                        fontSize: 11,
+                        fontWeight: 900,
+                        color: isPublic ? "#059669" : isShared ? "#8057E8" : "#402044",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                      }}
+                    >
+                      {isPublic ? <Globe size={12} /> : isShared ? <Users size={12} /> : <Lock size={12} />}
+                      <span style={{ textTransform: "capitalize" }}>{w.visibility}</span>
+                    </div>
+
+                    {/* Quick Menu Button */}
+                    {activeTab !== "public" && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(activeMenuId === w._id ? null : w._id);
+                        }}
+                        style={{
+                          position: "absolute",
+                          top: 10,
+                          right: 10,
+                          width: 32,
+                          height: 32,
+                          borderRadius: "50%",
+                          background: "rgba(255,255,255,0.92)",
+                          border: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          color: "var(--plum)",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                        }}
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                    )}
+
+                    {/* Dropdown Menu */}
+                    {activeMenuId === w._id && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          position: "absolute",
+                          top: 46,
+                          right: 10,
+                          background: "#fff",
+                          borderRadius: "16px",
+                          boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+                          border: "1px solid rgba(255,99,183,0.3)",
+                          padding: "6px",
+                          zIndex: 30,
+                          minWidth: 150,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 2,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveMenuId(null);
+                            navigate(`/wishlist/${w._id}`);
+                          }}
+                          style={{
+                            padding: "8px 12px",
+                            borderRadius: "10px",
+                            background: "none",
+                            border: "none",
+                            textAlign: "left",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "var(--plum)",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <FolderHeart size={13} color="#FF3F9D" /> Open Wishlist
+                        </button>
+
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(w)}
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: "10px",
+                              background: "none",
+                              border: "none",
+                              textAlign: "left",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "var(--plum)",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <Settings size={13} /> Edit Details
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveMenuId(null);
+                            duplicateWishlist(w._id);
+                          }}
+                          style={{
+                            padding: "8px 12px",
+                            borderRadius: "10px",
+                            background: "none",
+                            border: "none",
+                            textAlign: "left",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "var(--plum)",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <Copy size={13} /> Duplicate
+                        </button>
+
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveMenuId(null);
+                              toggleArchiveWishlist(w._id);
+                            }}
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: "10px",
+                              background: "none",
+                              border: "none",
+                              textAlign: "left",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "var(--plum)",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <Archive size={13} /> {w.isArchived ? "Restore" : "Archive"}
+                          </button>
+                        )}
+
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveMenuId(null);
+                              if (window.confirm(`Are you sure you want to delete "${w.name}"?`)) {
+                                deleteWishlist(w._id);
+                              }
+                            }}
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: "10px",
+                              background: "none",
+                              border: "none",
+                              textAlign: "left",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#dc2626",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card Content */}
+                  <div style={{ padding: "16px 20px", flex: 1, display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <h3
+                        style={{
+                          fontFamily: "var(--font-display)",
+                          fontSize: 17,
+                          fontWeight: 900,
+                          color: "var(--plum)",
+                          margin: 0,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {w.name}
+                      </h3>
+                      {w.isPrimary && (
+                        <span
+                          style={{
+                            background: "rgba(255, 63, 157, 0.15)",
+                            color: "#FF3F9D",
+                            fontSize: 10,
+                            fontWeight: 900,
+                            padding: "2px 7px",
+                            borderRadius: "var(--radius-pill)",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          Default
+                        </span>
+                      )}
+                    </div>
+
+                    <p
+                      style={{
+                        color: "var(--text-muted)",
+                        fontSize: 13,
+                        margin: "0 0 14px",
+                        lineHeight: 1.4,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        flex: 1,
+                      }}
+                    >
+                      {w.description || "Shared boutique gift registry."}
+                    </p>
+
+                    {/* Bottom Metadata: Collaborator Avatars & Count */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingTop: 12,
+                        borderTop: "1px solid rgba(0,0,0,0.06)",
+                        marginTop: "auto",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 900, color: "#FF3F9D" }}>
+                          ₹{previewItems.reduce((acc, it) => acc + (Number(it.productId?.price) || Number(it.price) || 0) * (it.desiredQuantity || 1), 0).toLocaleString("en-IN")}
+                        </span>
+                        <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>
+                          • {previewItems.length} {previewItems.length === 1 ? "gift" : "gifts"}
+                        </span>
+                      </div>
+
+                      {/* Collaborator Avatars Stack */}
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        {isShared && (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              background: "rgba(128, 87, 232, 0.1)",
+                              padding: "3px 8px",
+                              borderRadius: "var(--radius-pill)",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: "#8057E8",
+                            }}
+                          >
+                            <Users size={12} />
+                            <span>{membersCount} members</span>
+                          </div>
+                        )}
+                        {!isShared && (
+                          <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700 }}>
+                            {w.owner?.name || w.ownerId?.name || "Personal"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         )}
-      </AnimatePresence>
+      </div>
 
       {/* ════════════════════════════════════════════════════════════════
-          CONFIRM CLEAR WISHLIST DIALOG
+          CREATE WISHLIST MODAL
       ════════════════════════════════════════════════════════════════ */}
       <AnimatePresence>
-        {confirmClearOpen && (
+        {createModalOpen && (
           <div
             style={{
               position: "fixed",
@@ -1527,110 +1025,442 @@ const WishlistPage = () => {
               left: 0,
               right: 0,
               bottom: 0,
-              background: "rgba(38, 16, 43, 0.7)",
-              backdropFilter: "blur(12px)",
+              background: "rgba(38, 16, 43, 0.72)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
               zIndex: 999999,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               padding: 16,
             }}
-            onClick={() => setConfirmClearOpen(false)}
+            onClick={() => setCreateModalOpen(false)}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.94, y: 15 }}
+              initial={{ opacity: 0, scale: 0.94, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 15 }}
               onClick={(e) => e.stopPropagation()}
               style={{
                 background: "#FFFFFF",
                 borderRadius: "28px",
-                padding: "28px 24px",
-                maxWidth: "420px",
+                maxWidth: "540px",
                 width: "100%",
                 boxShadow: "0 24px 60px rgba(45, 14, 52, 0.3)",
-                border: "2px solid rgba(239, 68, 68, 0.25)",
-                textAlign: "center",
+                border: "2px solid rgba(255, 99, 183, 0.35)",
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                maxHeight: "90vh",
               }}
             >
+              {/* Header */}
               <div
                 style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: "50%",
-                  background: "rgba(239, 68, 68, 0.12)",
-                  color: "#dc2626",
+                  padding: "20px 24px 16px",
+                  background: "linear-gradient(135deg, #FFF9FB 0%, #FAF5FF 100%)",
+                  borderBottom: "1px solid rgba(255, 99, 183, 0.2)",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 12px",
+                  justifyContent: "space-between",
                 }}
               >
-                <Trash2 size={24} />
-              </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      background: "rgba(255, 63, 157, 0.15)",
+                      color: "#FF3F9D",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <FolderHeart size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 900, color: "var(--plum)", margin: 0 }}>
+                      Create Collaborative Wishlist
+                    </h3>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      Curate gifts together or keep it personal
+                    </span>
+                  </div>
+                </div>
 
-              <h3 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 900, color: "var(--plum)", margin: "0 0 6px" }}>
-                Clear Entire Wishlist?
-              </h3>
-              <p style={{ color: "var(--text-muted)", fontSize: 13, margin: "0 0 22px", lineHeight: 1.5 }}>
-                This will remove all {wishlistItems.length} saved treasures from your favorites. This action cannot be undone.
-              </p>
-
-              <div style={{ display: "flex", gap: 10 }}>
                 <button
                   type="button"
-                  onClick={() => setConfirmClearOpen(false)}
+                  onClick={() => setCreateModalOpen(false)}
                   style={{
-                    flex: 1,
-                    padding: "12px",
-                    borderRadius: "var(--radius-pill)",
-                    background: "#f3f4f6",
+                    background: "rgba(64, 32, 68, 0.06)",
+                    border: "none",
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    fontSize: 16,
                     color: "var(--plum)",
-                    border: "none",
                     fontWeight: 800,
-                    fontSize: 13,
-                    cursor: "pointer",
                   }}
                 >
-                  Keep Items
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    clearWishlist();
-                    setConfirmClearOpen(false);
-                    toast.success(t("wishlist.cleared", "Wishlist cleared!"));
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: "12px",
-                    borderRadius: "var(--radius-pill)",
-                    background: "#dc2626",
-                    color: "#fff",
-                    border: "none",
-                    fontWeight: 800,
-                    fontSize: 13,
-                    cursor: "pointer",
-                    boxShadow: "0 4px 14px rgba(220, 38, 38, 0.3)",
-                  }}
-                >
-                  Yes, Clear All
+                  ✕
                 </button>
               </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleCreateSubmit} style={{ padding: "20px 24px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 800, color: "var(--plum)", display: "block", marginBottom: 6 }}>
+                    Collection Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. My Birthday Wishlist, Diwali Shopping, Baby Shower"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: "14px",
+                      border: "1.5px solid #e5e7eb",
+                      fontSize: 14,
+                      outline: "none",
+                      color: "var(--plum)",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 800, color: "var(--plum)", display: "block", marginBottom: 6 }}>
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    maxLength={300}
+                    placeholder="Share what this gift collection is for..."
+                    value={newDesc}
+                    onChange={(e) => setNewDesc(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: "14px",
+                      border: "1.5px solid #e5e7eb",
+                      fontSize: 13,
+                      outline: "none",
+                      fontFamily: "inherit",
+                      resize: "none",
+                      color: "var(--plum)",
+                    }}
+                  />
+                </div>
+
+                {/* Privacy Setting */}
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 800, color: "var(--plum)", display: "block", marginBottom: 8 }}>
+                    Privacy Mode:
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                    {[
+                      { id: "private", title: "Private", icon: <Lock size={15} />, desc: "Only you" },
+                      { id: "shared", title: "Shared", icon: <Users size={15} />, desc: "Invited friends" },
+                      { id: "public", title: "Public", icon: <Globe size={15} />, desc: "Shareable link" },
+                    ].map((mode) => (
+                      <div
+                        key={mode.id}
+                        onClick={() => setNewVisibility(mode.id)}
+                        style={{
+                          padding: "12px",
+                          borderRadius: "16px",
+                          border: "2px solid",
+                          borderColor: newVisibility === mode.id ? "#FF3F9D" : "#e5e7eb",
+                          background: newVisibility === mode.id ? "rgba(255, 240, 246, 0.6)" : "#fff",
+                          cursor: "pointer",
+                          textAlign: "center",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, color: newVisibility === mode.id ? "#FF3F9D" : "var(--plum)", fontWeight: 900, fontSize: 13, marginBottom: 2 }}>
+                          {mode.icon}
+                          <span>{mode.title}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{mode.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Invite Collaborators (Optional initial dispatch) */}
+                {newVisibility === "shared" && (
+                  <div
+                    style={{
+                      background: "linear-gradient(135deg, #FFF9FB, #FAF5FF)",
+                      padding: 16,
+                      borderRadius: "18px",
+                      border: "1.5px solid rgba(128, 87, 232, 0.25)",
+                    }}
+                  >
+                    <label style={{ fontSize: 13, fontWeight: 900, color: "var(--plum)", display: "block", marginBottom: 4 }}>
+                      Invite Friends by Email:
+                    </label>
+                    <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 10px" }}>
+                      Enter Gmail/email addresses separated by commas. They'll receive an invitation with your assigned role.
+                    </p>
+
+                    <input
+                      type="text"
+                      placeholder="e.g. friend1@gmail.com, sister@example.com"
+                      value={newEmails}
+                      onChange={(e) => setNewEmails(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px",
+                        borderRadius: "12px",
+                        border: "1.5px solid #e5e7eb",
+                        fontSize: 13,
+                        outline: "none",
+                        marginBottom: 10,
+                        color: "var(--plum)",
+                      }}
+                    />
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "var(--plum)" }}>Role:</span>
+                      <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        <input
+                          type="radio"
+                          name="role"
+                          checked={newRole === "editor"}
+                          onChange={() => setNewRole("editor")}
+                          style={{ accentColor: "#8057E8" }}
+                        />
+                        Editor (Can add/remove items & notes)
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        <input
+                          type="radio"
+                          name="role"
+                          checked={newRole === "viewer"}
+                          onChange={() => setNewRole("viewer")}
+                          style={{ accentColor: "#8057E8" }}
+                        />
+                        Viewer (View only)
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer Buttons */}
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setCreateModalOpen(false)}
+                    style={{
+                      padding: "11px 22px",
+                      borderRadius: "var(--radius-pill)",
+                      background: "#f3f4f6",
+                      border: "none",
+                      fontWeight: 800,
+                      fontSize: 13,
+                      color: "var(--plum)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !newTitle.trim()}
+                    style={{
+                      padding: "11px 28px",
+                      borderRadius: "var(--radius-pill)",
+                      background: "linear-gradient(135deg, #FF3F9D, #8057E8)",
+                      border: "none",
+                      color: "#fff",
+                      fontWeight: 900,
+                      fontSize: 13,
+                      cursor: isSubmitting ? "wait" : "pointer",
+                      boxShadow: "0 6px 18px rgba(255, 63, 157, 0.35)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Sparkles size={14} />
+                    <span>{isSubmitting ? "Creating…" : "Create Collection"}</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* ── EDIT WISHLIST MODAL ── */}
+        {editModalOpen && editingWishlist && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(38, 16, 43, 0.72)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              zIndex: 99999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+            }}
+            onClick={() => setEditModalOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: 480,
+                background: "#fff",
+                borderRadius: "32px",
+                border: "2px solid rgba(255, 99, 183, 0.4)",
+                boxShadow: "0 24px 70px rgba(64, 32, 68, 0.25)",
+                padding: "30px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <h3 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 900, color: "var(--plum)", margin: 0 }}>
+                  Edit Wishlist Details
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer" }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEdit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 800, color: "var(--plum)", display: "block", marginBottom: 6 }}>
+                    Wishlist Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "11px 14px",
+                      borderRadius: "14px",
+                      border: "1.5px solid rgba(255, 99, 183, 0.4)",
+                      fontSize: 14,
+                      outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 800, color: "var(--plum)", display: "block", marginBottom: 6 }}>
+                    Description
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: "14px",
+                      border: "1.5px solid #e5e7eb",
+                      fontSize: 13,
+                      outline: "none",
+                      boxSizing: "border-box",
+                      resize: "none",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 800, color: "var(--plum)", display: "block", marginBottom: 6 }}>
+                    Visibility & Privacy
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {["private", "shared", "public"].map((vis) => (
+                      <button
+                        key={vis}
+                        type="button"
+                        onClick={() => setEditVisibility(vis)}
+                        style={{
+                          flex: 1,
+                          padding: "8px",
+                          borderRadius: "12px",
+                          border: "1.5px solid",
+                          borderColor: editVisibility === vis ? "#FF3F9D" : "#e5e7eb",
+                          background: editVisibility === vis ? "#FFF0F6" : "#fff",
+                          color: editVisibility === vis ? "#FF3F9D" : "var(--plum)",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          textTransform: "capitalize",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {vis}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditModalOpen(false)}
+                    style={{
+                      padding: "10px 20px",
+                      borderRadius: "100px",
+                      background: "#f3f4f6",
+                      border: "none",
+                      fontWeight: 800,
+                      fontSize: 13,
+                      color: "var(--plum)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isEditingSubmitting || !editTitle.trim()}
+                    style={{
+                      padding: "10px 24px",
+                      borderRadius: "100px",
+                      background: "linear-gradient(135deg, #FF3F9D, #8057E8)",
+                      color: "#fff",
+                      border: "none",
+                      fontWeight: 900,
+                      fontSize: 13,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {isEditingSubmitting ? "Saving…" : "Save Changes"}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-
-      {/* ════════════════════════════════════════════════════════════════
-          TEMU-STYLE EXPRESS RAZORPAY CHECKOUT MODAL
-      ════════════════════════════════════════════════════════════════ */}
-      <TemuInstantBuyModal
-        isOpen={instantBuyOpen}
-        onClose={() => setInstantBuyOpen(false)}
-        product={instantBuyItem}
-      />
     </div>
   );
 };

@@ -129,7 +129,7 @@ const VendingMachineOverlay = ({
             marginBottom: 12,
           }}
         >
-          <Sparkles size={14} color="#FF3F9D" /> {t('vendingOverlay.badge', 'Cinematic 3D Toy Machine')}
+          <Sparkles size={14} color="#FF3F9D" /> {t('vendingOverlay.badge', '3D Surprise Toy Machine')}
         </div>
 
         <h1

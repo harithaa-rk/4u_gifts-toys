@@ -530,5 +530,28 @@
     "copied": "कॉपी हो गया!",
     "printVoucher": "वाउचर प्रिंट / सेव करें",
     "verifiedNotice": "4U Toys सर्वर द्वारा अधिकृत और सत्यापित टोकन।"
+  },
+  "wishlist": {
+    "title": "उपहार विशलिस्ट और साझा संग्रह",
+    "subtitle": "अपने दोस्तों और परिवार के साथ जादुई उपहार सूचियों को सहेजें और साझा करें।",
+    "myWishlists": "मेरी विशलिस्ट",
+    "sharedWithMe": "मेरे साथ साझा",
+    "publicWishlists": "सार्वजनिक संग्रह",
+    "archived": "अभिलेखागार",
+    "createCollection": "नई विशलिस्ट बनाएं",
+    "saveToWishlist": "विशलिस्ट में सहेजें",
+    "inviteCollaborators": "सहयोगियों को आमंत्रित करें",
+    "privacyPrivate": "निजी",
+    "privacyShared": "साझा",
+    "privacyPublic": "सार्वजनिक",
+    "owner": "मालिक",
+    "editor": "संपादक",
+    "viewer": "दर्शक",
+    "emptyWishlist": "इस संग्रह में अभी कोई वस्तु नहीं है",
+    "unreserved": "उपलब्ध",
+    "interested": "रुचिकर",
+    "planningToBuy": "खरीदने की योजना",
+    "reserved": "आरक्षित",
+    "purchased": "खरीदा गया"
   }
 }

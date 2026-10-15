@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { WishlistProvider } from './context/WishlistContext';
+import { CollaborativeWishlistProvider } from './context/CollaborativeWishlistContext';
 import StoreLayout from './components/StoreLayout';
 import RegisterPage from "./pages/RegisterPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
@@ -19,6 +20,9 @@ import CheckoutPage from "./pages/CheckoutPage.jsx";
 import OrderSuccessPage from "./pages/OrderSuccessPage.jsx";
 import OrdersPage from "./pages/OrdersPage.jsx";
 import WishlistPage from "./pages/WishlistPage.jsx";
+import SingleWishlistPage from "./pages/SingleWishlistPage.jsx";
+import InvitationPage from "./pages/InvitationPage.jsx";
+import PublicWishlistPage from "./pages/PublicWishlistPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import DashboardPage from "./pages/admin/DashboardPage.jsx";
 import AdminOrdersPage from "./pages/admin/OrdersPage.jsx";
@@ -36,52 +40,58 @@ function App() {
   return (
     <AuthProvider>
       <WishlistProvider>
-        <CartProvider>
-          <Toaster
-            position="bottom-center"
-            toastOptions={{
-              duration: 3000,
-              style: {
-                background: 'var(--card-bg, #fff)',
-                color: 'var(--text, #333)',
-                borderRadius: '16px',
-                border: '1px solid var(--border)',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-              }
-            }}
-          />
-          <Routes>
-            {/* Frontend Routes wrapped in StoreLayout */}
-            <Route element={<FrontendWrapper />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/shop" element={<ShopPage />} />
-              <Route path="/product/:id" element={<ProductDetailPage />} />
-              <Route path="/baby" element={<BabyPage />} />
-              <Route path="/mommy" element={<MommyPage />} />
-              <Route path="/father" element={<FatherPage />} />
-              <Route path="/daddy" element={<FatherPage />} />
-              <Route path="/decor" element={<DecorPage />} />
-              <Route path="/fancy" element={<FancyPage />} />
+        <CollaborativeWishlistProvider>
+          <CartProvider>
+            <Toaster
+              position="bottom-center"
+              toastOptions={{
+                duration: 3000,
+                style: {
+                  background: 'var(--card-bg, #fff)',
+                  color: 'var(--text, #333)',
+                  borderRadius: '16px',
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                }
+              }}
+            />
+            <Routes>
+              {/* Frontend Routes wrapped in StoreLayout */}
+              <Route element={<FrontendWrapper />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/shop" element={<ShopPage />} />
+                <Route path="/product/:id" element={<ProductDetailPage />} />
+                <Route path="/baby" element={<BabyPage />} />
+                <Route path="/mommy" element={<MommyPage />} />
+                <Route path="/father" element={<FatherPage />} />
+                <Route path="/daddy" element={<FatherPage />} />
+                <Route path="/decor" element={<DecorPage />} />
+                <Route path="/fancy" element={<FancyPage />} />
 
-              <Route path="/checkout" element={<CheckoutPage />} />
-              <Route path="/order-success" element={<OrderSuccessPage />} />
-              <Route path="/orders" element={<OrdersPage />} />
-              <Route path="/wishlist" element={<WishlistPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/settings" element={<ProfilePage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/order-success" element={<OrderSuccessPage />} />
+                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/wishlists" element={<WishlistPage />} />
+                <Route path="/wishlist/:id" element={<SingleWishlistPage />} />
+                <Route path="/wishlists/:id" element={<SingleWishlistPage />} />
+                <Route path="/wishlist/invitation/:token" element={<InvitationPage />} />
+                <Route path="/wishlist/shared/:shareCode" element={<PublicWishlistPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/settings" element={<ProfilePage />} />
 
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/login" element={<LoginPage />} />
-            </Route>
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/login" element={<LoginPage />} />
+              </Route>
 
-
-            {/* Admin Routes - standalone */}
-            <Route path="/admin">
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="orders" element={<AdminOrdersPage />} />
-            </Route>
-          </Routes>
-        </CartProvider>
+              {/* Admin Routes - standalone */}
+              <Route path="/admin">
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="orders" element={<AdminOrdersPage />} />
+              </Route>
+            </Routes>
+          </CartProvider>
+        </CollaborativeWishlistProvider>
       </WishlistProvider>
     </AuthProvider>
   );

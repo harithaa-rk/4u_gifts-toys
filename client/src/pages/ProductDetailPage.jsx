@@ -33,6 +33,7 @@ import toast from "react-hot-toast";
 
 import ARViewer from "../components/product/ARViewer";
 import TemuInstantBuyModal from "../components/payment/TemuInstantBuyModal";
+import AddToWishlistModal from "../components/wishlist/AddToWishlistModal";
 import { API_BASE_URL } from "../utils/constants";
 import { useTranslation } from "react-i18next";
 
@@ -64,6 +65,7 @@ const ProductDetailPage = () => {
   const [isAdded, setIsAdded] = useState(false);
   const [showAR, setShowAR] = useState(false);
   const [instantBuyModalOpen, setInstantBuyModalOpen] = useState(false);
+  const [wishlistModalOpen, setWishlistModalOpen] = useState(false);
 
   // Tabs state
   const [activeTab, setActiveTab] = useState("overview");
@@ -249,12 +251,15 @@ const ProductDetailPage = () => {
     setInstantBuyModalOpen(true);
   };
 
-  // Wishlist toggle
+  // Wishlist toggle & collaborative collections
   const handleWishlistToggle = () => {
     if (!product) return;
-    const alreadyWished = isInWishlist(product._id);
-    toggleWishlist(product);
-    toast.success(alreadyWished ? "Removed from wishlist" : "Saved to wishlist! 💖");
+    if (!isLoggedIn) {
+      toast.error('Please log in to save to your gift wishlists 💖');
+      navigate('/login');
+      return;
+    }
+    setWishlistModalOpen(true);
   };
 
   // Share product
@@ -635,6 +640,34 @@ const ProductDetailPage = () => {
                   }}
                 >
                   <Maximize2 size={16} />
+                </button>
+
+                {/* Save to Wishlist Collection Icon */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleWishlistToggle();
+                  }}
+                  title="Save to Gift Wishlist"
+                  style={{
+                    position: "absolute",
+                    top: 60,
+                    right: 16,
+                    background: "rgba(255, 255, 255, 0.9)",
+                    border: "1px solid rgba(255, 99, 183, 0.3)",
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    color: "#FF3F9D",
+                    zIndex: 20,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                  }}
+                >
+                  <Heart size={18} fill="#FF3F9D" />
                 </button>
 
                 {/* Image Nav Arrows */}
@@ -1062,6 +1095,34 @@ const ProductDetailPage = () => {
                   <span>{t("product.buyNow", "Buy Now ⚡")}</span>
                 </motion.button>
               )}
+
+              {/* Save to Collaborative Wishlist */}
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleWishlistToggle}
+                type="button"
+                style={{
+                  minWidth: 160,
+                  padding: "16px 22px",
+                  borderRadius: "var(--radius-pill)",
+                  background: "#FFF0F6",
+                  border: "2px solid #FF3F9D",
+                  color: "#FF3F9D",
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 900,
+                  fontSize: 15,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  boxShadow: "0 4px 14px rgba(255, 63, 157, 0.12)",
+                }}
+              >
+                <Heart size={18} fill="#FF3F9D" />
+                <span>Save to Wishlist</span>
+              </motion.button>
             </div>
 
             {/* ── DELIVERY ESTIMATOR & PINCODE CHECKER ── */}
@@ -2039,6 +2100,13 @@ const ProductDetailPage = () => {
         product={product}
         initialQuantity={quantity}
         selectedVariant={selectedVariant ? selectedVariant.name : null}
+      />
+
+      {/* Collaborative Wishlists Modal */}
+      <AddToWishlistModal
+        isOpen={wishlistModalOpen}
+        onClose={() => setWishlistModalOpen(false)}
+        product={product}
       />
     </div>
   );

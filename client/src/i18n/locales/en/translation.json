@@ -366,7 +366,7 @@
     }
   },
   "vendingOverlay": {
-    "badge": "Cinematic 3D Toy Machine",
+    "badge": "3D Surprise Toy Machine",
     "heading1": "Your Next Little Wonder",
     "heading2": "Awaits.",
     "subtext": "Step into a world of toys, surprises, and unforgettable gifts. Click any chamber inside the machine or press dispense to see it in action.",
@@ -530,5 +530,28 @@
     "copied": "Code Copied!",
     "printVoucher": "Print / Save Voucher",
     "verifiedNotice": "Authorized & cryptographic token verified by 4U Toys & Gifts backend."
+  },
+  "wishlist": {
+    "title": "Gift Wishlists & Shared Collections",
+    "subtitle": "Save, organize and collaborate on gift collections with your friends and family.",
+    "myWishlists": "My Wishlists",
+    "sharedWithMe": "Shared With Me",
+    "publicWishlists": "Public Collections",
+    "archived": "Archived",
+    "createCollection": "Create Wishlist",
+    "saveToWishlist": "Save to Wishlist",
+    "inviteCollaborators": "Invite Collaborators",
+    "privacyPrivate": "Private",
+    "privacyShared": "Shared",
+    "privacyPublic": "Public",
+    "owner": "Owner",
+    "editor": "Editor",
+    "viewer": "Viewer",
+    "emptyWishlist": "No items in this collection yet",
+    "unreserved": "Available",
+    "interested": "Interested",
+    "planningToBuy": "Planning to Buy",
+    "reserved": "Reserved",
+    "purchased": "Purchased"
   }
 }
