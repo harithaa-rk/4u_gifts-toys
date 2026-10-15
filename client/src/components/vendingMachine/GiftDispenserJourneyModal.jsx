@@ -227,15 +227,17 @@ const GiftDispenserJourneyModal = ({
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(38, 16, 43, 0.78)',
+        background: 'rgba(38, 16, 43, 0.82)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        zIndex: 1000,
+        zIndex: 999999,
+        pointerEvents: 'auto',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
-        padding: 'clamp(12px, 3vw, 24px)',
+        padding: 'clamp(12px, 3vh, 24px) 16px',
         overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
       }}
       onClick={(e) => {
         // Do not close during active dispensing or authorization
@@ -253,13 +255,15 @@ const GiftDispenserJourneyModal = ({
           width: '100%',
           maxWidth: '720px',
           background: '#FFFFFF',
-          borderRadius: '32px',
+          borderRadius: '28px',
           boxShadow: '0 30px 90px rgba(45, 14, 52, 0.45)',
           border: '2px solid rgba(255, 99, 183, 0.35)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          maxHeight: '92vh',
+          maxHeight: 'min(88vh, 740px)',
+          margin: 'auto 0',
+          position: 'relative',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -435,7 +439,17 @@ const GiftDispenserJourneyModal = ({
         </div>
 
         {/* ── MODAL SCROLLABLE CONTENT BODY ── */}
-        <div style={{ padding: 'clamp(20px, 4vw, 30px)', overflowY: 'auto', flex: 1 }}>
+        <div
+          style={{
+            padding: '20px 24px 28px',
+            overflowY: 'auto',
+            flex: 1,
+            minHeight: 0,
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain',
+            scrollBehavior: 'smooth',
+          }}
+        >
           <AnimatePresence mode="wait">
             {/* ══════════════════════════════════════════════════════════════
                 STEP 1: EXPLORE THE MACHINE & PRODUCT
@@ -446,26 +460,26 @@ const GiftDispenserJourneyModal = ({
                 initial={{ opacity: 0, x: -15 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 15 }}
-                style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
               >
                 <div
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
                     smFlexDirection: 'row',
-                    gap: 20,
+                    gap: 16,
                     background: 'linear-gradient(135deg, #FFF0F6 0%, #FAF5FF 100%)',
                     borderRadius: '24px',
-                    padding: 20,
+                    padding: 16,
                     border: '1.5px solid rgba(255, 99, 183, 0.3)',
                   }}
                 >
                   <div
                     style={{
                       width: '100%',
-                      maxWidth: 220,
-                      height: 190,
-                      borderRadius: '18px',
+                      maxWidth: 180,
+                      height: 150,
+                      borderRadius: '16px',
                       background: '#fff',
                       display: 'flex',
                       alignItems: 'center',
@@ -473,6 +487,7 @@ const GiftDispenserJourneyModal = ({
                       overflow: 'hidden',
                       margin: '0 auto',
                       boxShadow: 'var(--shadow-sm)',
+                      flexShrink: 0,
                     }}
                   >
                     {currentProduct.images?.[0] ? (
@@ -482,12 +497,12 @@ const GiftDispenserJourneyModal = ({
                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                       />
                     ) : (
-                      <span style={{ fontSize: 60 }}>🧸</span>
+                      <span style={{ fontSize: 50 }}>🧸</span>
                     )}
                   </div>
 
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                       <span
                         style={{
                           background: 'linear-gradient(135deg, #FF3F9D, #8057E8)',
@@ -515,16 +530,16 @@ const GiftDispenserJourneyModal = ({
                       </span>
                     </div>
 
-                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 900, color: 'var(--plum)', margin: '0 0 6px' }}>
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 900, color: 'var(--plum)', margin: '0 0 4px' }}>
                       {currentProduct.name}
                     </h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 8px', lineHeight: 1.4 }}>
                       {currentProduct.description || t('vendingOverlay.subtext', 'Handcrafted wonder from the 4U boutique collection.')}
                     </p>
 
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('shop.price', 'Catalogue Price')}:</span>
-                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 900, color: '#FF3F9D' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('shop.price', 'Catalogue Price')}:</span>
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 900, color: '#FF3F9D' }}>
                         ₹{Number(currentProduct.price).toLocaleString('en-IN')}
                       </span>
                     </div>
@@ -533,7 +548,7 @@ const GiftDispenserJourneyModal = ({
 
                 {/* Switch Chambers */}
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
+                  <label style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
                     {t('giftFlow.switchChamber', 'Browse Other Machine Chambers:')}
                   </label>
                   <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6 }}>
@@ -561,30 +576,54 @@ const GiftDispenserJourneyModal = ({
                   </div>
                 </div>
 
-                {/* Continue button */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                {/* Sticky Action Footer Bar */}
+                <div
+                  style={{
+                    position: 'sticky',
+                    bottom: -28,
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, #FFFFFF 100%)',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                    borderTop: '1px solid rgba(255, 99, 183, 0.2)',
+                    padding: '12px 20px',
+                    margin: '12px -24px -28px -24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    zIndex: 20,
+                    borderRadius: '0 0 28px 28px',
+                    boxShadow: '0 -6px 20px rgba(64, 32, 68, 0.08)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{t('shop.price', 'Catalogue Price')}:</span>
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 900, color: '#FF3F9D' }}>
+                      ₹{Number(currentProduct.price).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+
                   <button
                     type="button"
                     disabled={isOutOfStock}
                     onClick={handleNextFromStep1}
                     style={{
-                      padding: '14px 32px',
+                      padding: '12px 28px',
                       borderRadius: 'var(--radius-pill)',
                       background: isOutOfStock ? '#d1d5db' : 'linear-gradient(135deg, #FF3F9D, #C9184A)',
                       color: '#fff',
                       border: 'none',
                       fontFamily: 'var(--font-display)',
                       fontWeight: 900,
-                      fontSize: 15,
+                      fontSize: 14,
                       cursor: isOutOfStock ? 'not-allowed' : 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 8,
-                      boxShadow: isOutOfStock ? 'none' : '0 8px 24px rgba(255, 63, 157, 0.35)',
+                      boxShadow: isOutOfStock ? 'none' : '0 6px 18px rgba(255, 63, 157, 0.35)',
                     }}
                   >
                     <span>{t('giftFlow.continueToType', 'Dispense This Gift')}</span>
-                    <ArrowRight size={18} />
+                    <ArrowRight size={16} />
                   </button>
                 </div>
               </motion.div>
@@ -772,8 +811,25 @@ const GiftDispenserJourneyModal = ({
                   </motion.div>
                 )}
 
-                {/* Back and Next controls */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                {/* Sticky Navigation Footer */}
+                <div
+                  style={{
+                    position: 'sticky',
+                    bottom: -28,
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, #FFFFFF 100%)',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                    borderTop: '1px solid rgba(255, 99, 183, 0.2)',
+                    padding: '12px 20px',
+                    margin: '16px -24px -28px -24px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    zIndex: 20,
+                    borderRadius: '0 0 28px 28px',
+                    boxShadow: '0 -6px 20px rgba(64, 32, 68, 0.08)',
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => setStep(1)}
@@ -997,8 +1053,25 @@ const GiftDispenserJourneyModal = ({
                   </div>
                 </div>
 
-                {/* Back and Next controls */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                {/* Sticky Navigation Footer */}
+                <div
+                  style={{
+                    position: 'sticky',
+                    bottom: -28,
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, #FFFFFF 100%)',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                    borderTop: '1px solid rgba(255, 99, 183, 0.2)',
+                    padding: '12px 20px',
+                    margin: '16px -24px -28px -24px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    zIndex: 20,
+                    borderRadius: '0 0 28px 28px',
+                    boxShadow: '0 -6px 20px rgba(64, 32, 68, 0.08)',
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => setStep(2)}
@@ -1157,8 +1230,25 @@ const GiftDispenserJourneyModal = ({
                   </div>
                 </div>
 
-                {/* Back, Edit and Continue Controls */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                {/* Sticky Navigation Footer */}
+                <div
+                  style={{
+                    position: 'sticky',
+                    bottom: -28,
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, #FFFFFF 100%)',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                    borderTop: '1px solid rgba(255, 99, 183, 0.2)',
+                    padding: '12px 20px',
+                    margin: '16px -24px -28px -24px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    zIndex: 20,
+                    borderRadius: '0 0 28px 28px',
+                    boxShadow: '0 -6px 20px rgba(64, 32, 68, 0.08)',
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => setStep(3)}
@@ -1379,8 +1469,25 @@ const GiftDispenserJourneyModal = ({
                   </span>
                 </div>
 
-                {/* Back and Authorize Controls */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                {/* Sticky Navigation Footer */}
+                <div
+                  style={{
+                    position: 'sticky',
+                    bottom: -28,
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, #FFFFFF 100%)',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                    borderTop: '1px solid rgba(255, 99, 183, 0.2)',
+                    padding: '12px 20px',
+                    margin: '16px -24px -28px -24px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    zIndex: 20,
+                    borderRadius: '0 0 28px 28px',
+                    boxShadow: '0 -6px 20px rgba(64, 32, 68, 0.08)',
+                  }}
+                >
                   <button
                     type="button"
                     disabled={isProcessingPayment}
